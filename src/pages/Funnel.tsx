@@ -44,12 +44,22 @@ const Funnel = () => {
   const [moveStage, setMoveStage] = useState<string>("");
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingDrop, setPendingDrop] = useState<{ dealId: string; newStage: string } | null>(null);
+<<<<<<< HEAD
   
   // Estado para o modal de exclusão bonito
   const [deleteDealId, setDeleteDealId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "", lead_id: "", property_id: "", value: "", stage: "novo",
+=======
+
+  const [form, setForm] = useState({
+    title: "",
+    lead_id: "",
+    property_id: "",
+    value: "",
+    stage: "novo",
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   });
 
   const resetForm = () => setForm({ title: "", lead_id: "", property_id: "", value: "", stage: "novo" });
@@ -64,6 +74,7 @@ const Funnel = () => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
 
+<<<<<<< HEAD
    const response = await fetch(
       "https://ecmahLxwttfeatvpxwng.supabase.co/functions/v1/hyper-api/deals",
       {
@@ -74,23 +85,51 @@ const Funnel = () => {
           // A MÁGICA AQUI: Se for "none" (Nenhum) ou vazio, manda null para o banco aceitar
           lead_id: form.lead_id === "none" || form.lead_id === "" ? null : form.lead_id,
           property_id: form.property_id === "none" || form.property_id === "" ? null : form.property_id,
+=======
+    const response = await fetch(
+      "https://ecmahLxwttfeatvpxwng.supabase.co/functions/v1/hyper-api/deals",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: form.title,
+          lead_id: form.lead_id,
+          property_id: form.property_id,
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
           value: parseFloat(form.value) || 0,
           stage: form.stage,
           company_id: profile.company_id,
           created_by: profile.id,
+<<<<<<< HEAD
           assigned_to: profile.id, 
+=======
+          assigned_to: profile.id,
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         }),
       }
     );
 
     const result = await response.json();
+<<<<<<< HEAD
     if (!result.success) { toast.error("Erro ao criar negócio: " + result.error); return; }
     toast.success("Negócio criado com sucesso!");
+=======
+    if (!result.success) {
+      toast.error("Erro ao criar negócio: " + result.error);
+      return;
+    }
+
+    toast.success("Negócio criado!");
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDialogOpen(false);
     resetForm();
   };
 
+<<<<<<< HEAD
   const confirmDelete = async () => {
     if (!deleteDealId) return;
     const { error } = await supabase.from("deals").delete().eq("id", deleteDealId);
@@ -98,10 +137,26 @@ const Funnel = () => {
     toast.success("Negócio excluído!");
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDeleteDealId(null);
+=======
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este negócio?")) return;
+    const { error } = await supabase.from("deals").delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir");
+      return;
+    }
+    toast.success("Negócio excluído!");
+    queryClient.invalidateQueries({ queryKey: ["deals"] });
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   };
 
   const handleDrop = async (newStage: string) => {
     if (!draggedDeal) return;
+<<<<<<< HEAD
+=======
+
+    // Se for para a coluna "fechado", pedir confirmação
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     if (newStage === "fechado") {
       setPendingDrop({ dealId: draggedDeal, newStage });
       setConfirmDialogOpen(true);
@@ -118,13 +173,28 @@ const Funnel = () => {
       `https://ecmahLxwttfeatvpxwng.supabase.co/functions/v1/hyper-api/deals?id=${dealId}`,
       {
         method: "PUT",
+<<<<<<< HEAD
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+=======
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         body: JSON.stringify({ stage: newStage }),
       }
     );
 
     const result = await response.json();
+<<<<<<< HEAD
     if (!result.success) { toast.error("Erro ao mover negócio: " + result.error); return; }
+=======
+    if (!result.success) {
+      toast.error("Erro ao mover negócio: " + result.error);
+      return;
+    }
+
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDraggedDeal(null);
     setPendingDrop(null);
@@ -132,6 +202,11 @@ const Funnel = () => {
 
   const handleMoveDeal = async (dealId: string, newStage: string) => {
     if (!newStage) return;
+<<<<<<< HEAD
+=======
+
+    // Se for para "fechado", pedir confirmação
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     if (newStage === "fechado") {
       setPendingDrop({ dealId, newStage });
       setConfirmDialogOpen(true);
@@ -164,13 +239,21 @@ const Funnel = () => {
           </div>
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
+<<<<<<< HEAD
               <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo Negócio</Button>
+=======
+              <Button><Plus className="w-4 h-4 mr-2" />Novo Negócio</Button>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Novo Negócio</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 <div className="space-y-2">
                   <Label>Lead <span className="text-muted-foreground font-normal">(opcional)</span></Label>
                   <Select value={form.lead_id} onValueChange={(v) => setForm({ ...form, lead_id: v })}>
@@ -185,7 +268,15 @@ const Funnel = () => {
                 {!form.lead_id && (
                   <div className="space-y-2">
                     <Label>Título do negócio *</Label>
+<<<<<<< HEAD
                     <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Venda Apto Centro" />
+=======
+                    <Input
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="Ex: Venda Apto Centro"
+                    />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     <p className="text-xs text-muted-foreground">Obrigatório quando não há lead selecionado</p>
                   </div>
                 )}
@@ -204,7 +295,16 @@ const Funnel = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Valor <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+<<<<<<< HEAD
                     <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="R$ 0,00" />
+=======
+                    <Input
+                      type="number"
+                      value={form.value}
+                      onChange={(e) => setForm({ ...form, value: e.target.value })}
+                      placeholder="R$ 0,00"
+                    />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                   </div>
                   <div className="space-y-2">
                     <Label>Etapa inicial</Label>
@@ -217,12 +317,22 @@ const Funnel = () => {
                   </div>
                 </div>
 
+<<<<<<< HEAD
                 <Button onClick={handleCreate} className="bg-[#7E22CE] hover:bg-[#6b21a8]">Criar Negócio</Button>
+=======
+                <Button onClick={handleCreate} className="bg-[#7E22CE] hover:bg-[#6b21a8]">
+                  Criar Negócio
+                </Button>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Cards de resumo */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de Negócios</p>
@@ -238,6 +348,10 @@ const Funnel = () => {
           </div>
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Kanban */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="flex gap-4 overflow-x-auto pb-4">
           {stages.map((stage) => {
             const stageDeals = deals?.filter((d) => d.stage === stage.value) || [];
@@ -253,9 +367,19 @@ const Funnel = () => {
                 <div className="p-3 border-b border-border">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-sm">{stage.label}</h3>
+<<<<<<< HEAD
                     <span className="text-xs bg-background rounded-full px-2 py-0.5 text-muted-foreground">{stageDeals.length}</span>
                   </div>
                   {total > 0 && <p className="text-xs text-muted-foreground mt-1">{formatCurrency(total)}</p>}
+=======
+                    <span className="text-xs bg-background rounded-full px-2 py-0.5 text-muted-foreground">
+                      {stageDeals.length}
+                    </span>
+                  </div>
+                  {total > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">{formatCurrency(total)}</p>
+                  )}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 </div>
                 <div className="p-2 space-y-2 min-h-[200px]">
                   {stageDeals.map((deal) => {
@@ -265,21 +389,52 @@ const Funnel = () => {
                       <div
                         key={deal.id}
                         draggable
+<<<<<<< HEAD
                         onDragStart={(e) => { setDraggedDeal(deal.id); e.dataTransfer.setData("text/plain", deal.id); }}
                         onDragEnd={() => setDraggedDeal(null)}
+=======
+                        onDragStart={(e) => {
+                          setDraggedDeal(deal.id);
+                          e.dataTransfer.setData("text/plain", deal.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedDeal(null);
+                        }}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                         className="bg-card rounded-lg border border-border p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group"
                       >
                         <div className="flex items-start gap-2">
                           <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                           <div className="flex-1 min-w-0">
+<<<<<<< HEAD
                             <p className="font-medium text-sm text-card-foreground truncate">{getDealLabel(deal)}</p>
                             {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
                             {deal.value && <p className="text-sm font-bold text-[#7E22CE] mt-1">{formatCurrency(Number(deal.value))}</p>}
+=======
+                            <p className="font-medium text-sm text-card-foreground truncate">
+                              {getDealLabel(deal)}
+                            </p>
+                            {sub && (
+                              <p className="text-xs text-muted-foreground truncate">{sub}</p>
+                            )}
+                            {deal.value && (
+                              <p className="text-sm font-bold text-[#7E22CE] mt-1">
+                                {formatCurrency(Number(deal.value))}
+                              </p>
+                            )}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                           </div>
 
                           {!isMoving ? (
                             <button
+<<<<<<< HEAD
                               onClick={() => { setMovingDeal(deal.id); setMoveStage(deal.stage); }}
+=======
+                              onClick={() => {
+                                setMovingDeal(deal.id);
+                                setMoveStage(deal.stage);
+                              }}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-blue-50 shrink-0"
                               title="Mover para outra etapa"
                             >
@@ -287,6 +442,7 @@ const Funnel = () => {
                             </button>
                           ) : (
                             <div className="flex items-center gap-1 shrink-0">
+<<<<<<< HEAD
                               <select value={moveStage} onChange={(e) => setMoveStage(e.target.value)} className="text-xs border rounded p-0.5" autoFocus>
                                 <option value="">Mover para...</option>
                                 {stages.map(s => (
@@ -295,11 +451,45 @@ const Funnel = () => {
                               </select>
                               <button onClick={() => handleMoveDeal(deal.id, moveStage)} className="text-xs bg-green-500 text-white px-1 py-0.5 rounded">OK</button>
                               <button onClick={() => { setMovingDeal(null); setMoveStage(""); }} className="text-xs bg-gray-300 px-1 py-0.5 rounded">X</button>
+=======
+                              <select
+                                value={moveStage}
+                                onChange={(e) => setMoveStage(e.target.value)}
+                                className="text-xs border rounded p-0.5"
+                                autoFocus
+                              >
+                                <option value="">Mover para...</option>
+                                {stages.map(s => (
+                                  <option key={s.value} value={s.value} disabled={s.value === deal.stage}>
+                                    {s.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleMoveDeal(deal.id, moveStage)}
+                                className="text-xs bg-green-500 text-white px-1 py-0.5 rounded"
+                              >
+                                OK
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setMovingDeal(null);
+                                  setMoveStage("");
+                                }}
+                                className="text-xs bg-gray-300 px-1 py-0.5 rounded"
+                              >
+                                X
+                              </button>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                             </div>
                           )}
 
                           <button
+<<<<<<< HEAD
                             onClick={() => setDeleteDealId(deal.id)}
+=======
+                            onClick={() => handleDelete(deal.id)}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 shrink-0"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -314,7 +504,11 @@ const Funnel = () => {
           })}
         </div>
 
+<<<<<<< HEAD
         {/* Modal de Fechamento de Venda */}
+=======
+        {/* Diálogo de confirmação para venda */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -326,7 +520,15 @@ const Funnel = () => {
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setPendingDrop(null)}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
+<<<<<<< HEAD
                 onClick={() => { if (pendingDrop) performMove(pendingDrop.dealId, pendingDrop.newStage); }}
+=======
+                onClick={() => {
+                  if (pendingDrop) {
+                    performMove(pendingDrop.dealId, pendingDrop.newStage);
+                  }
+                }}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 className="bg-green-600 hover:bg-green-700"
               >
                 Confirmar venda
@@ -334,6 +536,7 @@ const Funnel = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+<<<<<<< HEAD
 
         {/* Modal de Exclusão de Negócio (Novo) */}
         <AlertDialog open={!!deleteDealId} onOpenChange={(isOpen) => !isOpen && setDeleteDealId(null)}>
@@ -353,6 +556,8 @@ const Funnel = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       </motion.div>
     </AppLayout>
   );

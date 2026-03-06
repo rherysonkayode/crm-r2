@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+<<<<<<< HEAD
 import { MessageCircle, X, ChevronRight, Bot } from "lucide-react"; 
+=======
+import { MessageCircle, X, ChevronRight } from "lucide-react";
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 import { motion, AnimatePresence } from "framer-motion";
 
 type Question = {
@@ -44,6 +48,7 @@ const ChatBot = () => {
 
   const handleBack = () => setSelectedQuestion(null);
 
+<<<<<<< HEAD
   // COLOQUE SEU NÚMERO AQUI (Apenas números, com DDD)
   const whatsappNumber = "5521973721654"; 
   const whatsappMessage = encodeURIComponent("Olá! Vim pelo CRM R2 e gostaria de tirar uma dúvida.");
@@ -86,6 +91,19 @@ const ChatBot = () => {
       </div>
 
       {/* Janela do chat */}
+=======
+  return (
+    <>
+      {/* Botão flutuante - agora na DIREITA */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-6 right-6 z-50 bg-[#7E22CE] text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+      >
+        <MessageCircle className="w-6 h-6" />
+      </button>
+
+      {/* Janela do chat - também alinhada à direita */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -94,6 +112,7 @@ const ChatBot = () => {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="fixed bottom-24 right-6 z-50 w-80 sm:w-96"
           >
+<<<<<<< HEAD
             <Card className="border border-slate-200 shadow-xl overflow-hidden">
               <div className="bg-[#7E22CE] text-white p-4 flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -106,10 +125,18 @@ const ChatBot = () => {
                   </div>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-md transition-colors">
+=======
+            <Card className="border border-slate-200 shadow-xl">
+              {/* Cabeçalho */}
+              <div className="bg-[#7E22CE] text-white p-4 rounded-t-lg flex justify-between items-center">
+                <span className="font-semibold">Dúvidas? Pergunte aqui!</span>
+                <button onClick={() => setIsOpen(false)}>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
+<<<<<<< HEAD
               <CardContent className="p-4 max-h-96 overflow-y-auto">
                 {selectedQuestion ? (
                   <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
@@ -150,6 +177,36 @@ const ChatBot = () => {
                     <div className="mt-4 pt-4 border-t border-slate-100">
                       <p className="text-[10px] text-slate-400 text-center uppercase tracking-wider font-semibold">
                         Hermes • Suporte Inteligente R2 TECH
+=======
+              {/* Corpo */}
+              <CardContent className="p-4 max-h-96 overflow-y-auto">
+                {selectedQuestion ? (
+                  <div>
+                    <button
+                      onClick={handleBack}
+                      className="text-sm text-[#7E22CE] mb-3 flex items-center gap-1"
+                    >
+                      <ChevronRight className="w-4 h-4 rotate-180" /> Voltar
+                    </button>
+                    <h3 className="font-semibold text-slate-800 mb-2">{selectedQuestion.question}</h3>
+                    <p className="text-sm text-slate-600">{selectedQuestion.answer}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-500 mb-2">Selecione uma opção:</p>
+                    {questions.map((q) => (
+                      <button
+                        key={q.id}
+                        onClick={() => setSelectedQuestion(q)}
+                        className="w-full text-left p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors text-sm text-slate-700"
+                      >
+                        {q.question}
+                      </button>
+                    ))}
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <p className="text-xs text-slate-400 text-center">
+                        Atendimento humano em breve. Enquanto isso, use nosso FAQ.
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                       </p>
                     </div>
                   </div>

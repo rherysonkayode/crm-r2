@@ -9,14 +9,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+<<<<<<< HEAD
 import { Building2, User, ArrowLeft, Mail, Lock, CheckCircle2, Phone, CreditCard, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate, Link } from "react-router-dom";
+=======
+import { Building2, User, ArrowLeft, Mail, Lock, CheckCircle2, Phone } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 
 type AccountType = "corretor" | "imobiliaria" | null;
 type AreaAtuacao = "residencial" | "comercial" | "rural" | "todos";
 type PlanType = "start" | "pro" | "profissional" | "enterprise" | null;
 
+<<<<<<< HEAD
 const plans = {
   corretor: [
     { id: "start", name: "Start", description: "Para corretores autônomos começando", price: 97, users: 1, leads: 200, imoveis: 50, popular: false },
@@ -47,11 +54,62 @@ const formatCNPJ = (v: string) => {
 const SUPABASE_URL = "https://ecmahLxwttfeatvpxwng.supabase.co";
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
+=======
+// Definição dos planos (mesmos da Home)
+const plans = {
+  corretor: [
+    {
+      id: "start",
+      name: "Start",
+      description: "Para corretores autônomos começando",
+      price: 97,
+      users: 1,
+      leads: 200,
+      imoveis: 50,
+      popular: false,
+    },
+    {
+      id: "pro",
+      name: "Pro",
+      description: "Para corretores com alta demanda",
+      price: 147,
+      users: 1,
+      leads: 500,
+      imoveis: 150,
+      popular: false,
+    },
+  ],
+  imobiliaria: [
+    {
+      id: "profissional",
+      name: "Profissional",
+      description: "Para imobiliárias pequenas",
+      price: 197,
+      users: 5,
+      leads: 1000,
+      imoveis: 300,
+      popular: true,
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      description: "Para imobiliárias médias",
+      price: 347,
+      users: 20,
+      leads: 5000,
+      imoveis: 1000,
+      popular: false,
+    },
+  ],
+};
+
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+<<<<<<< HEAD
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -63,6 +121,11 @@ const Auth = () => {
   const [docType, setDocType] = useState<"cpf" | "cnpj">("cpf");
   const [docValue, setDocValue] = useState("");
 
+=======
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   const [accountType, setAccountType] = useState<AccountType>(null);
   const [areaAtuacao, setAreaAtuacao] = useState<AreaAtuacao>("residencial");
   const [selectedPlan, setSelectedPlan] = useState<PlanType>(null);
@@ -72,6 +135,10 @@ const Auth = () => {
   const [checkingEmail, setCheckingEmail] = useState(false);
   const navigate = useNavigate();
 
+<<<<<<< HEAD
+=======
+  // Validação de senha
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   const passwordRequirements = [
     { regex: /.{8,}/, label: "Pelo menos 8 caracteres" },
     { regex: /[A-Z]/, label: "Uma letra maiúscula" },
@@ -89,7 +156,11 @@ const Auth = () => {
     if (!emailToCheck) return false;
     setCheckingEmail(true);
     try {
+<<<<<<< HEAD
       const { data, error } = await (supabase.rpc as any)("check_email_exists", { email_to_check: emailToCheck });
+=======
+      const { data, error } = await (supabase.rpc as any)('check_email_exists', { email_to_check: emailToCheck });
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       if (error) throw error;
       return data;
     } catch (error) {
@@ -100,6 +171,7 @@ const Auth = () => {
     }
   };
 
+<<<<<<< HEAD
   const resetAllStates = () => {
     setIsLogin(!isLogin);
     setStep(1);
@@ -121,11 +193,19 @@ const Auth = () => {
     if (!isLogin && step === 1) {
       if (!isPasswordValid) { toast.error("A senha não atende aos requisitos mínimos"); return; }
       if (password !== confirmPassword) { toast.error("As senhas não coincidem"); return; }
+=======
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Etapa 1: verificar e-mail e avançar
+    if (!isLogin && step === 1) {
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       const exists = await checkEmailExists(email);
       if (exists) {
         setEmailExists(true);
         toast.error("Este e-mail já está cadastrado. Tente outro ou faça login.");
         return;
+<<<<<<< HEAD
       }
       setStep(2);
       return;
@@ -138,14 +218,58 @@ const Auth = () => {
       if (!phone || phone.length < 14) { toast.error("Informe um celular válido"); return; }
       if (accountType === "corretor" && (!cpf || cpf.length < 14)) { toast.error("CPF obrigatório"); return; }
       if (accountType === "imobiliaria" && (!companyName || !docValue)) { toast.error("Preencha os dados da imobiliária"); return; }
+=======
+      } else {
+        setEmailExists(false);
+        setStep(2);
+        return;
+      }
+    }
+
+    // Etapa 2: validar perfil e plano, e avançar
+    if (!isLogin && step === 2) {
+      if (!accountType) {
+        toast.error("Selecione seu tipo de perfil");
+        return;
+      }
+      if (!selectedPlan) {
+        toast.error("Selecione um plano para começar");
+        return;
+      }
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       setStep(3);
       return;
     }
 
+<<<<<<< HEAD
     if (!isLogin && step === 3) {
       if (!acceptTerms) { toast.error("Aceite os Termos de Uso"); return; }
       setLoading(true);
       try {
+=======
+    // Etapa 3: finalizar cadastro
+    if (!isLogin && step === 3) {
+      if (!acceptTerms) {
+        toast.error("Você precisa aceitar os Termos de Uso e Política de Privacidade");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        if (!isPasswordValid) {
+          toast.error("A senha não atende aos requisitos mínimos");
+          setLoading(false);
+          return;
+        }
+
+        const exists = await checkEmailExists(email);
+        if (exists) {
+          toast.error("Este e-mail já está cadastrado.");
+          setLoading(false);
+          return;
+        }
+
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -157,14 +281,18 @@ const Auth = () => {
               role: accountType,
               area_atuacao: areaAtuacao,
               plan: selectedPlan,
+<<<<<<< HEAD
               cpf: accountType === "corretor" ? cpf : (docType === "cpf" ? docValue : null),
               cnpj: accountType === "imobiliaria" && docType === "cnpj" ? docValue : null,
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
             },
           },
         });
 
         if (error) throw error;
 
+<<<<<<< HEAD
         if (data.user) {
           // Busca session — pode ser null se "Confirm email" estiver ativo,
           // então usa o anon key como fallback para chamar a Edge Function
@@ -185,6 +313,27 @@ const Auth = () => {
         toast.success("Cadastro realizado! Verifique seu e-mail para confirmar sua conta.");
         resetAllStates();
         setIsLogin(true);
+=======
+        // 🔥 CHAMADA À EDGE FUNCTION PARA CRIAR O PERFIL COM OS CAMPOS DE TRIAL
+        if (data.user) {
+          try {
+            await fetch('https://ecmahLxwttfeatvpxwng.supabase.co/functions/v1/create-profile', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user: data.user }),
+            });
+            // Não mostramos toast de erro aqui para não atrapalhar o fluxo
+          } catch (edgeError) {
+            console.error('Erro ao chamar Edge Function:', edgeError);
+          }
+        }
+
+        toast.success("Cadastro realizado! Verifique seu e-mail para confirmar.");
+        setIsLogin(true);
+        setStep(1);
+        setAccountType(null);
+        setSelectedPlan(null);
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       } catch (error: any) {
         toast.error(error.message);
       } finally {
@@ -193,6 +342,10 @@ const Auth = () => {
       return;
     }
 
+<<<<<<< HEAD
+=======
+    // Login
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     if (isLogin) {
       setLoading(true);
       try {
@@ -210,6 +363,10 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex flex-col bg-white font-sans">
       <div className="flex-1 flex">
+<<<<<<< HEAD
+=======
+        {/* Lado esquerdo - Branding */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="hidden lg:flex lg:w-1/2 bg-[#7E22CE] items-center justify-center p-12 relative overflow-hidden">
           <div className="relative z-10 text-center">
             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="mb-10">
@@ -222,6 +379,10 @@ const Auth = () => {
           </div>
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Lado direito - Formulário */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
             <div className="text-center mb-8">
@@ -239,17 +400,41 @@ const Auth = () => {
                       <Label htmlFor="email">E-mail</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+<<<<<<< HEAD
                         <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 py-6 rounded-2xl bg-slate-50" placeholder="seu@email.com" required />
+=======
+                        <Input
+                          id="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-10 py-6 rounded-2xl bg-slate-50"
+                          placeholder="seu@email.com"
+                          required
+                        />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password">Senha</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+<<<<<<< HEAD
                         <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10 py-6 rounded-2xl bg-slate-50" placeholder="••••••••" required />
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
+=======
+                        <Input
+                          id="password"
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-10 py-6 rounded-2xl bg-slate-50"
+                          placeholder="••••••••"
+                          required
+                        />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                       </div>
                     </div>
                     <Button type="submit" className="w-full py-6 bg-[#7E22CE] text-white rounded-2xl font-bold text-lg" disabled={loading}>
@@ -258,41 +443,101 @@ const Auth = () => {
                   </motion.div>
                 ) : (
                   <motion.div key={step} initial={{ x: 10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -10, opacity: 0 }} className="space-y-5">
+<<<<<<< HEAD
 
+=======
+                    {/* Etapa 1: Dados básicos */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     {step === 1 && (
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="email">E-mail</Label>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+<<<<<<< HEAD
                             <Input id="email" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailExists(false); }} className={cn("pl-10 py-6 rounded-2xl", emailExists && "border-red-500 focus-visible:ring-red-500")} placeholder="seu@email.com" required />
                           </div>
                           {emailExists && <p className="text-xs text-red-500">Este e-mail já está cadastrado.</p>}
+=======
+                            <Input
+                              id="email"
+                              type="email"
+                              value={email}
+                              onChange={(e) => {
+                                setEmail(e.target.value);
+                                setEmailExists(false);
+                              }}
+                              className={cn(
+                                "pl-10 py-6 rounded-2xl",
+                                emailExists && "border-red-500 focus-visible:ring-red-500"
+                              )}
+                              placeholder="seu@email.com"
+                              required
+                            />
+                          </div>
+                          {emailExists && (
+                            <p className="text-xs text-red-500 mt-1">Este e-mail já está cadastrado.</p>
+                          )}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="password">Senha</Label>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+<<<<<<< HEAD
                             <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10 py-6 rounded-2xl" placeholder="Crie uma senha" required />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
+=======
+                            <Input
+                              id="password"
+                              type="password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="pl-10 py-6 rounded-2xl"
+                              placeholder="Crie uma senha"
+                              required
+                            />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                           </div>
                           <div className="mt-2 space-y-1">
                             <div className="flex gap-1 h-1">
                               {[1, 2, 3, 4, 5].map((i) => (
+<<<<<<< HEAD
                                 <div key={i} className={cn("h-full flex-1 rounded-full transition-all", i <= passwordStrength ? (i <= 2 ? "bg-red-400" : i <= 4 ? "bg-yellow-400" : "bg-green-400") : "bg-gray-200")} />
+=======
+                                <div
+                                  key={i}
+                                  className={cn(
+                                    "h-full flex-1 rounded-full transition-all",
+                                    i <= passwordStrength
+                                      ? i <= 2
+                                        ? "bg-red-400"
+                                        : i <= 4
+                                        ? "bg-yellow-400"
+                                        : "bg-green-400"
+                                      : "bg-gray-200"
+                                  )}
+                                />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                               ))}
                             </div>
                             <ul className="text-xs text-muted-foreground space-y-1 mt-2">
                               {passwordRequirements.map((req, idx) => (
                                 <li key={idx} className={cn("flex items-center gap-1", req.regex.test(password) && "text-green-600")}>
+<<<<<<< HEAD
                                   <span>{req.regex.test(password) ? "✓" : "○"}</span><span>{req.label}</span>
+=======
+                                  <span>{req.regex.test(password) ? "✓" : "○"}</span>
+                                  <span>{req.label}</span>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                                 </li>
                               ))}
                             </ul>
                           </div>
                         </div>
+<<<<<<< HEAD
                         <div className="space-y-2">
                           <Label htmlFor="confirmPassword">Confirme sua senha</Label>
                           <div className="relative">
@@ -316,12 +561,49 @@ const Auth = () => {
                             </div>
                             <div onClick={() => { setAccountType("imobiliaria"); setSelectedPlan(null); }} className={cn("p-5 rounded-2xl border-2 cursor-pointer transition-all text-center", accountType === "imobiliaria" ? "border-[#7E22CE] bg-purple-50 text-[#7E22CE]" : "border-slate-100")}>
                               <Building2 className="mx-auto mb-2 w-6 h-6" /><span className="text-sm font-bold">Imobiliária</span>
+=======
+                      </div>
+                    )}
+
+                    {/* Etapa 2: Perfil + Plano */}
+                    {step === 2 && (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Você é</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div
+                              onClick={() => {
+                                setAccountType("corretor");
+                                setSelectedPlan(null);
+                              }}
+                              className={cn(
+                                "p-5 rounded-2xl border-2 cursor-pointer transition-all text-center",
+                                accountType === "corretor" ? "border-[#7E22CE] bg-purple-50 text-[#7E22CE]" : "border-slate-100"
+                              )}
+                            >
+                              <User className="mx-auto mb-2 w-6 h-6" />
+                              <span className="text-sm font-bold">Corretor</span>
+                            </div>
+                            <div
+                              onClick={() => {
+                                setAccountType("imobiliaria");
+                                setSelectedPlan(null);
+                              }}
+                              className={cn(
+                                "p-5 rounded-2xl border-2 cursor-pointer transition-all text-center",
+                                accountType === "imobiliaria" ? "border-[#7E22CE] bg-purple-50 text-[#7E22CE]" : "border-slate-100"
+                              )}
+                            >
+                              <Building2 className="mx-auto mb-2 w-6 h-6" />
+                              <span className="text-sm font-bold">Imobiliária</span>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                             </div>
                           </div>
                         </div>
 
                         {accountType && (
                           <div className="space-y-3">
+<<<<<<< HEAD
                             <Label>Escolha seu plano</Label>
                             <div className="grid grid-cols-1 gap-3">
                               {plans[accountType].map((plan) => (
@@ -331,6 +613,41 @@ const Auth = () => {
                                     <div className="flex justify-between items-center">
                                       <div><h3 className="font-bold text-slate-900">{plan.name}</h3><p className="text-xs text-slate-500">{plan.description}</p></div>
                                       <div className="text-right"><span className="text-xl font-bold text-[#7E22CE]">R$ {plan.price}</span><span className="text-xs text-slate-500">/mês</span></div>
+=======
+                            <Label className="block">Escolha seu plano</Label>
+                            <div className="grid grid-cols-1 gap-3">
+                              {plans[accountType].map((plan) => (
+                                <Card
+                                  key={plan.id}
+                                  className={cn(
+                                    "cursor-pointer transition-all hover:border-[#7E22CE] relative",
+                                    selectedPlan === plan.id
+                                      ? "border-2 border-[#7E22CE] bg-purple-50/50"
+                                      : "border border-slate-200"
+                                  )}
+                                  onClick={() => setSelectedPlan(plan.id as PlanType)}
+                                >
+                                  {plan.popular && (
+                                    <Badge className="absolute -top-2 right-4 bg-[#7E22CE] text-white">
+                                      Mais popular
+                                    </Badge>
+                                  )}
+                                  <CardContent className="p-4">
+                                    <div className="flex justify-between items-center">
+                                      <div>
+                                        <h3 className="font-bold text-slate-900">{plan.name}</h3>
+                                        <p className="text-xs text-slate-500">{plan.description}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <span className="text-xl font-bold text-[#7E22CE]">R$ {plan.price}</span>
+                                        <span className="text-xs text-slate-500">/mês</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-4 mt-2 text-xs text-slate-600">
+                                      <span>{plan.users} {plan.users === 1 ? 'usuário' : 'usuários'}</span>
+                                      <span>{plan.leads} leads/mês</span>
+                                      <span>{plan.imoveis} imóveis</span>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                                     </div>
                                   </CardContent>
                                 </Card>
@@ -339,6 +656,7 @@ const Auth = () => {
                           </div>
                         )}
 
+<<<<<<< HEAD
                         <div className="space-y-2">
                           <Label>Seu nome completo</Label>
                           <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="py-6 rounded-2xl" placeholder="Ex: João da Silva" required />
@@ -391,6 +709,63 @@ const Auth = () => {
                             {["residencial", "comercial", "rural", "todos"].map((area) => (
                               <button key={area} type="button" onClick={() => setAreaAtuacao(area as AreaAtuacao)} className={cn("px-3 py-2 rounded-lg border text-sm transition-all", areaAtuacao === area ? "border-[#7E22CE] bg-purple-50 text-[#7E22CE]" : "border-slate-200 text-slate-500")}>
                                 {area.charAt(0).toUpperCase() + area.slice(1)}
+=======
+                        <div className="space-y-2 mt-4">
+                          <Label>Seu nome completo</Label>
+                          <Input
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            className="py-6 rounded-2xl"
+                            placeholder="Ex: João da Silva"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Telefone</Label>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              value={phone}
+                              onChange={(e) => setPhone(e.target.value)}
+                              className="pl-10 py-6 rounded-2xl"
+                              placeholder="(21) 99999-9999"
+                            />
+                          </div>
+                        </div>
+                        {accountType === "imobiliaria" && (
+                          <div className="space-y-2">
+                            <Label>Nome da Imobiliária</Label>
+                            <Input
+                              value={companyName}
+                              onChange={(e) => setCompanyName(e.target.value)}
+                              className="py-6 rounded-2xl"
+                              placeholder="Ex: Imobiliária R2"
+                              required
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Área de atuação principal</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { value: "residencial", label: "Residencial" },
+                              { value: "comercial", label: "Comercial" },
+                              { value: "rural", label: "Rural" },
+                              { value: "todos", label: "Todos" },
+                            ].map((area) => (
+                              <button
+                                key={area.value}
+                                type="button"
+                                onClick={() => setAreaAtuacao(area.value as AreaAtuacao)}
+                                className={cn(
+                                  "px-3 py-2 rounded-lg border text-sm font-medium transition-all",
+                                  areaAtuacao === area.value
+                                    ? "border-[#7E22CE] bg-purple-50 text-[#7E22CE]"
+                                    : "border-slate-200 text-slate-500"
+                                )}
+                              >
+                                {area.label}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                               </button>
                             ))}
                           </div>
@@ -398,10 +773,15 @@ const Auth = () => {
                       </div>
                     )}
 
+<<<<<<< HEAD
+=======
+                    {/* Etapa 3: Termos e finalização */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     {step === 3 && (
                       <div className="space-y-6">
                         <div className="text-center py-8 bg-purple-50 rounded-3xl border border-purple-100">
                           <CheckCircle2 className="w-14 h-14 text-[#7E22CE] mx-auto mb-4" />
+<<<<<<< HEAD
                           <p className="text-sm font-medium">Cadastro como <span className="text-[#7E22CE] font-bold uppercase">{accountType}</span> quase pronto!</p>
                         </div>
                         <div className="flex items-start space-x-2">
@@ -411,28 +791,95 @@ const Auth = () => {
                             <Link to="/termos" target="_blank" className="text-[#7E22CE] font-medium hover:underline">Termos de Uso</Link>
                             {" "}e{" "}
                             <Link to="/privacidade" target="_blank" className="text-[#7E22CE] font-medium hover:underline">Política de Privacidade</Link>.
+=======
+                          <p className="text-sm font-medium">
+                            Cadastro como <span className="text-[#7E22CE] font-bold uppercase">{accountType === "corretor" ? "Corretor" : "Imobiliária"}</span> com plano <span className="font-bold">{selectedPlan}</span> quase pronto!
+                          </p>
+                        </div>
+
+                        <div className="flex items-start space-x-2">
+                          <Checkbox
+                            id="terms"
+                            checked={acceptTerms}
+                            onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                          />
+                          <Label htmlFor="terms" className="text-sm text-slate-600 leading-relaxed">
+                            Li e concordo com os{" "}
+                            <a href="/termos" target="_blank" className="text-[#7E22CE] font-medium hover:underline">
+                              Termos de Uso
+                            </a>{" "}
+                            e a{" "}
+                            <a href="/privacidade" target="_blank" className="text-[#7E22CE] font-medium hover:underline">
+                              Política de Privacidade
+                            </a>
+                            .
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                           </Label>
                         </div>
                       </div>
                     )}
 
+<<<<<<< HEAD
+=======
+                    {/* Botões de navegação */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     <div className="flex gap-3 pt-2">
                       {step > 1 && (
                         <Button type="button" variant="ghost" onClick={() => setStep(s => s - 1)} className="rounded-2xl py-6">
                           <ArrowLeft className="w-4 h-4" />
                         </Button>
                       )}
+<<<<<<< HEAD
                       <Button type="submit" className="flex-1 py-6 bg-[#7E22CE] text-white rounded-2xl font-bold" disabled={loading || checkingEmail}>
                         {loading ? "Processando..." : checkingEmail ? "Verificando..." : step === 3 ? "Finalizar Cadastro" : "Próximo"}
+=======
+                      <Button
+                        type="submit"
+                        className={cn(
+                          "flex-1 py-6 bg-[#7E22CE] text-white rounded-2xl font-bold",
+                          step === 3 && !acceptTerms && "opacity-50 cursor-not-allowed"
+                        )}
+                        disabled={
+                          loading ||
+                          (step === 3 && !acceptTerms) ||
+                          checkingEmail ||
+                          (step === 2 && (!accountType || !selectedPlan))
+                        }
+                      >
+                        {loading
+                          ? "Processando..."
+                          : step === totalSteps
+                          ? "Finalizar Cadastro"
+                          : step === 1 && checkingEmail
+                          ? "Verificando..."
+                          : "Próximo"}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                       </Button>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
+<<<<<<< HEAD
               <p className="text-center mt-10 text-slate-500 text-sm">
                 {isLogin ? "Não possui uma conta?" : "Já é cadastrado?"}{" "}
                 <span onClick={resetAllStates} className="text-[#7E22CE] font-extrabold cursor-pointer hover:underline">
+=======
+              {/* Link para alternar entre login e cadastro */}
+              <p className="text-center mt-10 text-slate-500 text-sm">
+                {isLogin ? "Não possui uma conta?" : "Já é cadastrado?"}{" "}
+                <span
+                  onClick={() => {
+                    setIsLogin(!isLogin);
+                    setStep(1);
+                    setAcceptTerms(false);
+                    setEmailExists(false);
+                    setAccountType(null);
+                    setSelectedPlan(null);
+                  }}
+                  className="text-[#7E22CE] font-extrabold cursor-pointer hover:underline"
+                >
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                   {isLogin ? "Crie agora" : "Fazer login"}
                 </span>
               </p>

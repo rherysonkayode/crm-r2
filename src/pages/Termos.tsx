@@ -1,5 +1,8 @@
 import PublicHeader from "@/components/PublicHeader";
+<<<<<<< HEAD
 import { Link } from "react-router-dom"; // IMPORTAÇÃO ADICIONADA
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 
 const Termos = () => {
   return (
@@ -44,7 +47,11 @@ const Termos = () => {
 
           <h2>6. Dados do Cliente</h2>
           <p>
+<<<<<<< HEAD
             Você mantém a propriedade de todos os dados inseridos na plataforma (leads, imóveis, negócios etc.). A R2 TECH atua como operadora desses dados, tratando‑os apenas conforme suas instruções e para fornecer o serviço. Mais detalhes na nossa <Link to="/privacidade" className="text-[#7E22CE] hover:underline">Política de Privacidade</Link>.
+=======
+            Você mantém a propriedade de todos os dados inseridos na plataforma (leads, imóveis, negócios etc.). A R2 TECH atua como operadora desses dados, tratando‑os apenas conforme suas instruções e para fornecer o serviço. Mais detalhes na nossa <a href="/privacidade" className="text-[#7E22CE] hover:underline">Política de Privacidade</a>.
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
           </p>
 
           <h2>7. Privacidade e Proteção de Dados</h2>

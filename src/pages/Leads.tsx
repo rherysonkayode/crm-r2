@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+<<<<<<< HEAD
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 import { toast } from "sonner";
 import { Plus, Search, Trash2, Pencil, Users, User, LayoutList, Columns, GripVertical, Settings2, X, ArrowRight } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -65,6 +68,7 @@ const useKanbanColumns = (profileId?: string, companyId?: string | null) => {
   });
 };
 
+<<<<<<< HEAD
 // ─── Funções de Máscara e Validação ─────────────────────────────────────────
 const formatPhone = (v: string) => {
   v = v.replace(/\D/g, ""); // Remove não números
@@ -83,6 +87,8 @@ const isValidEmail = (email: string) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 const Leads = () => {
   const { data: leads, isLoading } = useLeads();
   const { data: profiles } = useProfiles();
@@ -98,31 +104,50 @@ const Leads = () => {
   const [editingLead, setEditingLead] = useState<any>(null);
   const [draggedLead, setDraggedLead] = useState<string | null>(null);
 
+<<<<<<< HEAD
   const [movingLead, setMovingLead] = useState<string | null>(null);
   const [moveColumn, setMoveColumn] = useState<string>("");
 
   // Estado para o Modal de Exclusão
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
 
+=======
+  // Estados para mover lead (manual)
+  const [movingLead, setMovingLead] = useState<string | null>(null);
+  const [moveColumn, setMoveColumn] = useState<string>("");
+
+  // Gerenciamento de colunas
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   const [colDialogOpen, setColDialogOpen] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [newColColor, setNewColColor] = useState("#7E22CE");
 
   const [form, setForm] = useState({
+<<<<<<< HEAD
     name: "", phone: "", cpf: "", email: "", source: "", notes: "",
+=======
+    name: "", phone: "", email: "", source: "", notes: "",
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     status: "novo" as "novo" | "contato" | "qualificado" | "proposta" | "convertido" | "perdido",
     assigned_to: "",
   });
 
   const resetForm = () => {
+<<<<<<< HEAD
     setForm({ name: "", phone: "", cpf: "", email: "", source: "", status: "novo", assigned_to: "", notes: "" });
+=======
+    setForm({ name: "", phone: "", email: "", source: "", status: "novo", assigned_to: "", notes: "" });
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     setEditingLead(null);
   };
 
   const handleSave = async () => {
     if (!profile || !form.name.trim()) { toast.error("Informe o nome do lead"); return; }
+<<<<<<< HEAD
     if (form.email && !isValidEmail(form.email)) { toast.error("Por favor, insira um e-mail válido"); return; }
 
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     const payload = {
       ...form,
       company_id: profile.company_id ?? null,
@@ -141,6 +166,7 @@ const Leads = () => {
     resetForm();
   };
 
+<<<<<<< HEAD
   const confirmDelete = async () => {
     if (!deleteLeadId) return;
     const { error } = await supabase.from("leads").delete().eq("id", deleteLeadId);
@@ -148,10 +174,18 @@ const Leads = () => {
     toast.success("Lead excluído com sucesso!");
     queryClient.invalidateQueries({ queryKey: ["leads"] });
     setDeleteLeadId(null);
+=======
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("leads").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir"); return; }
+    toast.success("Lead excluído!");
+    queryClient.invalidateQueries({ queryKey: ["leads"] });
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   };
 
   const openEdit = (lead: any) => {
     if (isCorretor && lead.assigned_to !== profile?.id) { toast.error("Você só pode editar seus próprios leads."); return; }
+<<<<<<< HEAD
     setForm({ 
       name: lead.name, 
       phone: lead.phone || "", 
@@ -162,10 +196,17 @@ const Leads = () => {
       assigned_to: lead.assigned_to || "", 
       notes: lead.notes || "" 
     });
+=======
+    setForm({ name: lead.name, phone: lead.phone || "", email: lead.email || "", source: lead.source || "", status: lead.status, assigned_to: lead.assigned_to || "", notes: lead.notes || "" });
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     setEditingLead(lead);
     setDialogOpen(true);
   };
 
+<<<<<<< HEAD
+=======
+  // ─── Kanban: drag & drop entre colunas ─────────────────────────────────
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   const handleDrop = async (columnId: string) => {
     if (!draggedLead) return;
     const { error } = await supabase.from("leads").update({ kanban_column_id: columnId } as any).eq("id", draggedLead);
@@ -174,19 +215,41 @@ const Leads = () => {
     setDraggedLead(null);
   };
 
+<<<<<<< HEAD
   const handleMoveLead = async (leadId: string, newColumnId: string | null) => {
     const { error } = await supabase.from("leads").update({ kanban_column_id: newColumnId } as any).eq("id", leadId);
     if (error) { toast.error("Erro ao mover lead"); return; }
+=======
+  // ─── Mover lead manualmente (seta) ─────────────────────────────────────
+  const handleMoveLead = async (leadId: string, newColumnId: string | null) => {
+    const { error } = await supabase.from("leads").update({ kanban_column_id: newColumnId } as any).eq("id", leadId);
+    if (error) {
+      toast.error("Erro ao mover lead");
+      return;
+    }
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     toast.success("Lead movido!");
     queryClient.invalidateQueries({ queryKey: ["leads"] });
     setMovingLead(null);
     setMoveColumn("");
   };
 
+<<<<<<< HEAD
   const handleCreateColumn = async () => {
     if (!newColName.trim() || !profile) return;
     const { error } = await supabase.from("kanban_columns").insert({
       name: newColName, color: newColColor, position: (kanbanColumns?.length ?? 0), company_id: profile.company_id ?? null, created_by: profile.id,
+=======
+  // ─── Criar coluna ───────────────────────────────────────────────────────
+  const handleCreateColumn = async () => {
+    if (!newColName.trim() || !profile) return;
+    const { error } = await supabase.from("kanban_columns").insert({
+      name: newColName,
+      color: newColColor,
+      position: (kanbanColumns?.length ?? 0),
+      company_id: profile.company_id ?? null,
+      created_by: profile.id,
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     } as any);
     if (error) { toast.error("Erro ao criar coluna: " + error.message); return; }
     toast.success("Coluna criada!");
@@ -196,6 +259,10 @@ const Leads = () => {
   };
 
   const handleDeleteColumn = async (colId: string) => {
+<<<<<<< HEAD
+=======
+    // Remove a referência dos leads antes
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     await supabase.from("leads").update({ kanban_column_id: null } as any).eq("kanban_column_id", colId);
     const { error } = await supabase.from("kanban_columns").delete().eq("id", colId);
     if (error) { toast.error("Erro ao excluir coluna"); return; }
@@ -204,16 +271,30 @@ const Leads = () => {
     queryClient.invalidateQueries({ queryKey: ["leads"] });
   };
 
+<<<<<<< HEAD
   const filtered = leads?.filter((l) => {
     const matchSearch = l.name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || l.status === filterStatus;
     const matchCorretor = isCorretor ? l.assigned_to === profile?.id : filterCorretor === "all" || l.assigned_to === filterCorretor;
+=======
+  // ─── Filtros ─────────────────────────────────────────────────────────────
+  const filtered = leads?.filter((l) => {
+    const matchSearch = l.name.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === "all" || l.status === filterStatus;
+    const matchCorretor = isCorretor
+      ? l.assigned_to === profile?.id
+      : filterCorretor === "all" || l.assigned_to === filterCorretor;
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     return matchSearch && matchStatus && matchCorretor;
   });
 
   const myLeads = leads?.filter((l) => l.assigned_to === profile?.id) ?? [];
   const totalLeads = leads?.length ?? 0;
 
+<<<<<<< HEAD
+=======
+  // ─── Lead Card (Kanban) ──────────────────────────────────────────────────
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   const LeadCard = ({ lead }: { lead: any }) => {
     const isMine = lead.assigned_to === profile?.id;
     const responsavel = profiles?.find(p => p.id === lead.assigned_to);
@@ -222,7 +303,14 @@ const Leads = () => {
     return (
       <div
         draggable
+<<<<<<< HEAD
         onDragStart={(e) => { setDraggedLead(lead.id); e.dataTransfer.setData("text/plain", lead.id); }}
+=======
+        onDragStart={(e) => {
+          setDraggedLead(lead.id);
+          e.dataTransfer.setData("text/plain", lead.id);
+        }}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         onDragEnd={() => setDraggedLead(null)}
         className="bg-white rounded-xl border border-slate-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all group relative"
       >
@@ -232,10 +320,22 @@ const Leads = () => {
             <p className="font-semibold text-sm text-slate-800 truncate">{lead.name}</p>
           </div>
 
+<<<<<<< HEAD
           <div className="flex gap-0.5 shrink-0">
             {!isMoving ? (
               <button
                 onClick={() => { setMovingLead(lead.id); setMoveColumn(lead.kanban_column_id || ""); }}
+=======
+          {/* Botões de ação - sempre visíveis */}
+          <div className="flex gap-0.5 shrink-0">
+            {/* Botão de mover (seta) - SEMPRE VISÍVEL */}
+            {!isMoving ? (
+              <button
+                onClick={() => {
+                  setMovingLead(lead.id);
+                  setMoveColumn(lead.kanban_column_id || "");
+                }}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 className="p-1 rounded hover:bg-blue-50 transition-colors"
                 title="Mover para outra coluna"
               >
@@ -243,13 +343,24 @@ const Leads = () => {
               </button>
             ) : null}
 
+<<<<<<< HEAD
             <button onClick={() => openEdit(lead)} className="p-1 rounded hover:bg-slate-100 transition-colors">
+=======
+            <button
+              onClick={() => openEdit(lead)}
+              className="p-1 rounded hover:bg-slate-100 transition-colors"
+            >
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
               <Pencil className="w-3 h-3 text-slate-400" />
             </button>
 
             {(isImobiliaria || isMine) && (
               <button
+<<<<<<< HEAD
                 onClick={() => setDeleteLeadId(lead.id)}
+=======
+                onClick={() => handleDelete(lead.id)}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 className="p-1 rounded hover:bg-slate-100 transition-colors"
               >
                 <Trash2 className="w-3 h-3 text-red-400" />
@@ -258,6 +369,10 @@ const Leads = () => {
           </div>
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Seletor de mover (quando ativado) */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         {isMoving && (
           <div className="mt-2 flex items-center gap-1">
             <select
@@ -274,11 +389,33 @@ const Leads = () => {
               ))}
               <option value="null" disabled={!lead.kanban_column_id}>Sem coluna</option>
             </select>
+<<<<<<< HEAD
             <button onClick={() => handleMoveLead(lead.id, moveColumn === "null" ? null : moveColumn)} className="text-xs bg-green-500 text-white px-2 py-1 rounded">OK</button>
             <button onClick={() => { setMovingLead(null); setMoveColumn(""); }} className="text-xs bg-gray-300 px-2 py-1 rounded">X</button>
           </div>
         )}
 
+=======
+            <button
+              onClick={() => handleMoveLead(lead.id, moveColumn === "null" ? null : moveColumn)}
+              className="text-xs bg-green-500 text-white px-2 py-1 rounded"
+            >
+              OK
+            </button>
+            <button
+              onClick={() => {
+                setMovingLead(null);
+                setMoveColumn("");
+              }}
+              className="text-xs bg-gray-300 px-2 py-1 rounded"
+            >
+              X
+            </button>
+          </div>
+        )}
+
+        {/* Conteúdo do card */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="mt-2 space-y-1">
           {lead.email && <p className="text-xs text-slate-400 truncate">{lead.email}</p>}
           {lead.phone && <p className="text-xs text-slate-400">{lead.phone}</p>}
@@ -299,6 +436,10 @@ const Leads = () => {
     <AppLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
+<<<<<<< HEAD
+=======
+        {/* Header */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Leads</h1>
@@ -307,6 +448,10 @@ const Leads = () => {
             </p>
           </div>
           <div className="flex gap-2">
+<<<<<<< HEAD
+=======
+            {/* Toggle de view */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
             <div className="flex bg-muted rounded-lg p-0.5">
               <button
                 onClick={() => setView("list")}
@@ -322,6 +467,10 @@ const Leads = () => {
               </button>
             </div>
 
+<<<<<<< HEAD
+=======
+            {/* Gerenciar colunas (kanban) */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
             {view === "kanban" && (
               <Dialog open={colDialogOpen} onOpenChange={setColDialogOpen}>
                 <DialogTrigger asChild>
@@ -332,6 +481,10 @@ const Leads = () => {
                     <DialogTitle>Gerenciar Colunas</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-2">
+<<<<<<< HEAD
+=======
+                    {/* Colunas existentes */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     <div className="space-y-2">
                       {kanbanColumns?.map(col => (
                         <div key={col.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 bg-slate-50">
@@ -347,6 +500,10 @@ const Leads = () => {
                       )}
                     </div>
 
+<<<<<<< HEAD
+=======
+                    {/* Nova coluna */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     <div className="border-t border-border pt-4 space-y-3">
                       <p className="text-sm font-semibold">Nova coluna</p>
                       <div className="flex gap-2">
@@ -379,10 +536,17 @@ const Leads = () => {
               </Dialog>
             )}
 
+<<<<<<< HEAD
             {/* Novo Lead - ADICIONADO CAMPO CPF E MÁSCARAS */}
             <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo Lead</Button>
+=======
+            {/* Novo Lead */}
+            <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button><Plus className="w-4 h-4 mr-2" />Novo Lead</Button>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
@@ -395,16 +559,22 @@ const Leads = () => {
                       <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
+<<<<<<< HEAD
                       <Label>CPF</Label>
                       <Input 
                         value={form.cpf} 
                         onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} 
                         placeholder="000.000.000-00" 
                       />
+=======
+                      <Label>Telefone</Label>
+                      <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
+<<<<<<< HEAD
                       <Label>Telefone</Label>
                       <Input 
                         value={form.phone} 
@@ -423,6 +593,11 @@ const Leads = () => {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
+=======
+                      <Label>E-mail</Label>
+                      <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                    </div>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     <div className="space-y-2">
                       <Label>Origem</Label>
                       <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v })}>
@@ -432,6 +607,11 @@ const Leads = () => {
                         </SelectContent>
                       </Select>
                     </div>
+<<<<<<< HEAD
+=======
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                     <div className="space-y-2">
                       <Label>Status</Label>
                       <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as typeof form.status })}>
@@ -441,6 +621,7 @@ const Leads = () => {
                         </SelectContent>
                       </Select>
                     </div>
+<<<<<<< HEAD
                   </div>
                   {isImobiliaria && (
                     <div className="space-y-2">
@@ -455,17 +636,41 @@ const Leads = () => {
                       </Select>
                     </div>
                   )}
+=======
+                    {isImobiliaria && (
+                      <div className="space-y-2">
+                        <Label>Atribuir a</Label>
+                        <Select value={form.assigned_to} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
+                          <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                          <SelectContent>
+                            {profiles?.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>{p.full_name || "Sem nome"}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                   <div className="space-y-2">
                     <Label>Observações</Label>
                     <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anotações sobre o lead..." />
                   </div>
+<<<<<<< HEAD
                   <Button onClick={handleSave} className="bg-[#7E22CE] hover:bg-[#6b21a8]">{editingLead ? "Salvar" : "Criar Lead"}</Button>
+=======
+                  <Button onClick={handleSave}>{editingLead ? "Salvar" : "Criar Lead"}</Button>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 </div>
               </DialogContent>
             </Dialog>
           </div>
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Cards de resumo */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
           {isCorretor ? (
             <>
@@ -500,6 +705,10 @@ const Leads = () => {
           )}
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* Filtros */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -526,6 +735,10 @@ const Leads = () => {
           )}
         </div>
 
+<<<<<<< HEAD
+=======
+        {/* ─── VIEW: LISTA ─────────────────────────────────────────────────── */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         {view === "list" && (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -572,7 +785,11 @@ const Leads = () => {
                             {(isImobiliaria || isMine) && (
                               <>
                                 <Button variant="ghost" size="icon" onClick={() => openEdit(lead)}><Pencil className="w-4 h-4" /></Button>
+<<<<<<< HEAD
                                 <Button variant="ghost" size="icon" onClick={() => setDeleteLeadId(lead.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+=======
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                               </>
                             )}
                           </div>
@@ -591,6 +808,10 @@ const Leads = () => {
           </div>
         )}
 
+<<<<<<< HEAD
+=======
+        {/* ─── VIEW: KANBAN ─────────────────────────────────────────────────── */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         {view === "kanban" && (
           <div>
             {(!kanbanColumns || kanbanColumns.length === 0) ? (
@@ -614,6 +835,10 @@ const Leads = () => {
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => handleDrop(col.id)}
                     >
+<<<<<<< HEAD
+=======
+                      {/* Header da coluna */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                       <div className="px-3 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.color }} />
@@ -623,6 +848,11 @@ const Leads = () => {
                           {colLeads.length}
                         </span>
                       </div>
+<<<<<<< HEAD
+=======
+
+                      {/* Cards */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                       <div className="p-2 space-y-2 flex-1 min-h-[120px]">
                         {colLeads.map((lead: any) => (
                           <LeadCard key={lead.id} lead={lead} />
@@ -631,6 +861,11 @@ const Leads = () => {
                     </div>
                   );
                 })}
+<<<<<<< HEAD
+=======
+
+                {/* Coluna "Sem coluna" para leads não categorizados */}
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
                 <div
                   className="flex-shrink-0 w-72 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex flex-col"
                   onDragOver={(e) => e.preventDefault()}
@@ -658,6 +893,7 @@ const Leads = () => {
           </div>
         )}
 
+<<<<<<< HEAD
         {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
         <AlertDialog open={!!deleteLeadId} onOpenChange={(isOpen) => !isOpen && setDeleteLeadId(null)}>
           <AlertDialogContent>
@@ -676,6 +912,8 @@ const Leads = () => {
           </AlertDialogContent>
         </AlertDialog>
 
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
       </motion.div>
     </AppLayout>
   );

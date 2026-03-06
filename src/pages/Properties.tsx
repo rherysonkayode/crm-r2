@@ -162,7 +162,11 @@ const Properties = () => {
       area: form.area ? parseFloat(form.area) : null,
       description: form.description || null,
       company_id: profile.company_id ?? null,
+<<<<<<< HEAD
       created_by: profile.id,
+=======
+      created_by: profile.id, // ← garante isolamento por usuário
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     };
 
     let savedPropertyId = editing?.id;
@@ -209,11 +213,17 @@ const Properties = () => {
     resetForm();
   };
 
+<<<<<<< HEAD
   // ─── FUNÇÃO DE DELETAR CORRIGIDA E BLINDADA ────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir este imóvel?")) return;
 
     // 1. Verifica se o imóvel está preso a algum Negócio
+=======
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este imóvel?")) return;
+
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     const { data: deals, error: checkError } = await supabase
       .from("deals")
       .select("id")
@@ -224,7 +234,10 @@ const Properties = () => {
       return;
     }
 
+<<<<<<< HEAD
     // 2. Se estiver preso, avisa o usuário e desvincula antes de apagar
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     if (deals && deals.length > 0) {
       const confirmMsg = `Este imóvel está vinculado a ${deals.length} negócio(s). Deseja desvinculá-los e excluir?`;
       if (!confirm(confirmMsg)) return;
@@ -240,7 +253,10 @@ const Properties = () => {
       }
     }
 
+<<<<<<< HEAD
     // 3. Deleta o imóvel forçando a contagem para detectar erro de RLS (Permissão no Banco)
+=======
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
     const { error, count } = await supabase
       .from("properties")
       .delete({ count: "exact" })
@@ -252,6 +268,7 @@ const Properties = () => {
     }
 
     if (count === 0) {
+<<<<<<< HEAD
       toast.error("O banco de dados recusou a exclusão. Verifique as regras de RLS!");
       return;
     }
@@ -260,6 +277,14 @@ const Properties = () => {
     
     // 4. O await aqui garante que a tela atualize na mesma hora
     await queryClient.invalidateQueries({ queryKey: ["properties"] });
+=======
+      toast.error("Nenhum imóvel foi excluído. Verifique as permissões.");
+      return;
+    }
+
+    toast.success("Imóvel excluído!");
+    queryClient.invalidateQueries({ queryKey: ["properties"] });
+>>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
   };
 
   const handleRegistrarVenda = async () => {

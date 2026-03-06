@@ -18,7 +18,6 @@ const Home = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-
       <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="fixed bottom-24 right-6 z-50 bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600 transition-colors">
         <MessageCircle className="w-6 h-6" />
       </a>
@@ -28,9 +27,7 @@ const Home = () => {
       <section className="bg-gradient-to-br from-[#7E22CE] via-purple-700 to-purple-800 text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">CRM R2</h1>
-          <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-3xl mx-auto">
-            A solucao definitiva para corretores e imobiliarias de alta performance
-          </p>
+          <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-3xl mx-auto">A solucao definitiva para corretores e imobiliarias de alta performance</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="bg-white text-[#7E22CE] hover:bg-purple-50 text-lg px-8 py-6" asChild>
               <Link to="/auth">Comecar teste gratis</Link>
@@ -68,17 +65,13 @@ const Home = () => {
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center text-slate-900 mb-4">Planos que cabem no seu bolso</h2>
-          <p className="text-center text-slate-500 mb-8 max-w-2xl mx-auto">
-            Precos acessiveis para voce comecar agora. Teste gratis de 3 dias sem compromisso.
-          </p>
+          <p className="text-center text-slate-500 mb-8 max-w-2xl mx-auto">Precos acessiveis para voce comecar agora. Teste gratis de 3 dias sem compromisso.</p>
           <div className="flex lg:grid lg:grid-cols-4 gap-6 overflow-x-auto pb-4">
             {plans.map((plan) => (
               <div key={plan.name} className="flex-shrink-0 w-[280px] sm:w-[300px] lg:w-auto">
                 <Card className={`relative flex flex-col h-full ${plan.popular ? "border-2 border-[#7E22CE] shadow-lg" : "border border-slate-200"}`}>
                   {plan.popular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#7E22CE] text-white px-3 py-1 text-xs whitespace-nowrap">
-                      Mais popular
-                    </Badge>
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#7E22CE] text-white px-3 py-1 text-xs whitespace-nowrap">Mais popular</Badge>
                   )}
                   <CardHeader>
                     <CardTitle className="text-2xl font-bold text-slate-900">{plan.name}</CardTitle>
@@ -110,9 +103,7 @@ const Home = () => {
               </div>
             ))}
           </div>
-          <p className="text-center text-sm text-slate-500 mt-8">
-            Planos anuais com 20% de desconto (consulte na hora da assinatura)
-          </p>
+          <p className="text-center text-sm text-slate-500 mt-8">Planos anuais com 20% de desconto (consulte na hora da assinatura)</p>
         </div>
       </section>
 
@@ -122,7 +113,7 @@ const Home = () => {
           <div className="space-y-4">
             <details className="bg-white p-4 rounded-lg border border-slate-200">
               <summary className="font-semibold cursor-pointer">Como funciona o teste gratis?</summary>
-              <p className="mt-2 text-slate-600">Voce tem 3 dias para testar todas as funcionalidades do plano escolhido. Nao e necessario cartao de credito. Apos o periodo, o acesso e bloqueado ate a assinatura.</p>
+              <p className="mt-2 text-slate-600">Voce tem 3 dias para testar todas as funcionalidades. Nao e necessario cartao de credito.</p>
             </details>
             <details className="bg-white p-4 rounded-lg border border-slate-200">
               <summary className="font-semibold cursor-pointer">Posso mudar de plano depois?</summary>
@@ -163,9 +154,7 @@ const Home = () => {
 
 const BenefitCard = ({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) => (
   <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-[#7E22CE] mb-4">
-      {icon}
-    </div>
+    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-[#7E22CE] mb-4">{icon}</div>
     <h3 className="font-semibold text-lg text-slate-800 mb-2">{title}</h3>
     <p className="text-sm text-slate-500">{text}</p>
   </div>

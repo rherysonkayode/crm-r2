@@ -7,10 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-<<<<<<< HEAD
 import ConfirmEmail from "./pages/ConfirmEmail";
-=======
->>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
 import Properties from "./pages/Properties";
@@ -95,10 +92,7 @@ const App = () => (
             <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
             <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
-<<<<<<< HEAD
             <Route path="/confirmar-email" element={<ConfirmEmail />} />
-=======
->>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
             <Route path="/termos" element={<Termos />} />
             <Route path="/privacidade" element={<Privacidade />} />
             <Route path="/faq" element={<FAQ />} />

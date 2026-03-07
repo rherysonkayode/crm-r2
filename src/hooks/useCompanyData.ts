@@ -39,15 +39,8 @@ export const useProperties = () => {
         .order("created_at", { ascending: false });
 
       if (profile?.company_id) {
-<<<<<<< HEAD
         query = query.eq("company_id", profile.company_id);
       } else {
-=======
-        // Usuário vinculado a uma empresa: vê imóveis da empresa
-        query = query.eq("company_id", profile.company_id);
-      } else {
-        // Usuário independente (sem empresa): vê APENAS seus próprios imóveis
->>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         query = query.eq("created_by", profile!.id);
       }
 
@@ -60,11 +53,7 @@ export const useProperties = () => {
 };
 
 export const useDeals = () => {
-<<<<<<< HEAD
-  const { profile, isCorretor } = useAuth(); // Agora ele puxa se é corretor ou não
-=======
-  const { profile } = useAuth();
->>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
+  const { profile, isCorretor } = useAuth();
   return useQuery({
     queryKey: ["deals", profile?.id, profile?.company_id],
     queryFn: async () => {
@@ -73,14 +62,10 @@ export const useDeals = () => {
         .select("*, leads(name), properties(title)")
         .order("created_at", { ascending: false });
 
-<<<<<<< HEAD
       // LÓGICA ATUALIZADA: Busca os negócios corretos dependendo do tipo de conta
       if (isCorretor && !profile?.company_id) {
         query = query.eq("assigned_to", profile!.id);
       } else if (profile?.company_id) {
-=======
-      if (profile?.company_id) {
->>>>>>> 8ef6bb3c4fb2f51adebc971ac1d20716470d4b07
         query = query.eq("company_id", profile.company_id);
       } else {
         query = query.eq("created_by", profile!.id);

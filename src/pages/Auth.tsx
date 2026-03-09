@@ -85,6 +85,22 @@ const Auth = () => {
   const totalSteps = 3;
   const progressValue = (step / totalSteps) * 100;
 
+  const handleFullNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFullName(e.target.value.replace(/[^a-zA-Z�-�\s]/g, ""));
+  };
+
+  const checkCpfCnpjExists = async (doc: string) => {
+    const clean = doc.replace(/\D/g, "");
+    const { data } = await supabase.from("profiles").select("id").eq("cpf", clean).maybeSingle();
+    return !!data;
+  };
+
+  const checkPhoneExists = async (phoneToCheck: string) => {
+    const clean = phoneToCheck.replace(/\D/g, "");
+    const { data } = await supabase.from("profiles").select("id").eq("phone", clean).maybeSingle();
+    return !!data;
+  };
+
   const checkEmailExists = async (emailToCheck: string) => {
     if (!emailToCheck) return false;
     setCheckingEmail(true);
@@ -135,7 +151,22 @@ const Auth = () => {
       if (!accountType) { toast.error("Selecione seu tipo de perfil"); return; }
       if (!selectedPlan) { toast.error("Selecione um plano para começar"); return; }
       if (!fullName) { toast.error("Informe seu nome completo"); return; }
-      if (!phone || phone.length < 14) { toast.error("Informe um celular válido"); return; }
+      if (!/^[a-zA-Z\u00C0-\u00FF\s]+$/.test(fullName)) { toast.error("Nome deve conter apenas letras"); return; }
+      if (!phone || phone.replace(/\D/g, "").length < 11) { toast.error("Informe um celular válido com DDD"); return; }
+      setLoading(true);
+      try {
+        const phoneExists = await checkPhoneExists(phone);
+        if (phoneExists) { toast.error("Este celular já está cadastrado. Use outro número."); setLoading(false); return; }
+        const docToCheck = accountType === "corretor" ? cpf : docValue;
+        if (docToCheck) {
+          const docExists = await checkCpfCnpjExists(docToCheck);
+          if (docExists) { toast.error("Este CPF/CNPJ já está cadastrado."); setLoading(false); return; }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
       if (accountType === "corretor" && (!cpf || cpf.length < 14)) { toast.error("CPF obrigatório"); return; }
       if (accountType === "imobiliaria" && (!companyName || !docValue)) { toast.error("Preencha os dados da imobiliária"); return; }
       setStep(3);
@@ -150,6 +181,7 @@ const Auth = () => {
           email,
           password,
           options: {
+            emailRedirectTo: "https://crm-r2.vercel.app/confirm-email",
             data: {
               full_name: fullName,
               phone,
@@ -339,7 +371,7 @@ const Auth = () => {
 
                         <div className="space-y-2">
                           <Label>Seu nome completo</Label>
-                          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="py-6 rounded-2xl" placeholder="Ex: João da Silva" required />
+                          <Input value={fullName} onChange={handleFullNameChange} className="py-6 rounded-2xl" placeholder="Ex: João da Silva" required />
                         </div>
                         <div className="space-y-2">
                           <Label>Telefone (Celular)</Label>

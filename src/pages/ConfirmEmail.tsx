@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2, ArrowRight, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Status = "loading" | "success" | "error" | "already_confirmed";
+type Status = "loading" | "success" | "already_confirmed" | "error";
 
 export default function ConfirmEmail() {
   const [status, setStatus] = useState<Status>("loading");
@@ -13,36 +13,44 @@ export default function ConfirmEmail() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token_hash = searchParams.get("token_hash");
-    const type = searchParams.get("type");
+    const check = async () => {
+      const error_code = searchParams.get("error_code");
+      const error = searchParams.get("error");
 
-    // Supabase redireciona com token_hash + type=signup
-    if (token_hash && type === "signup") {
-      supabase.auth
-        .verifyOtp({ token_hash, type: "signup" })
-        .then(({ error }) => {
-          if (error) {
-            console.error("Erro ao verificar OTP:", error);
-            // Token expirado ou já usado → trata como já confirmado
-            if (
-              error.message?.includes("expired") ||
-              error.message?.includes("already") ||
-              error.message?.includes("used")
-            ) {
-              setStatus("already_confirmed");
-            } else {
-              setStatus("error");
-            }
-          } else {
+      // Se veio com erro na URL (token expirado/inválido)
+      if (error || error_code) {
+        // Verifica se já tem sessão ativa (conta já confirmada antes)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setStatus("already_confirmed");
+        } else {
+          setStatus("error");
+        }
+        return;
+      }
+
+      // Supabase já verificou o token e criou a sessão automaticamente
+      // Só precisamos checar se a sessão existe
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        setStatus("success");
+        setTimeout(() => navigate("/dashboard"), 3000);
+      } else {
+        // Aguarda um momento para a sessão ser estabelecida
+        setTimeout(async () => {
+          const { data: { session: session2 } } = await supabase.auth.getSession();
+          if (session2) {
             setStatus("success");
-            // Redireciona pro dashboard após 3s
             setTimeout(() => navigate("/dashboard"), 3000);
+          } else {
+            setStatus("already_confirmed");
           }
-        });
-    } else {
-      // Sem parâmetros válidos → pode ser acesso direto
-      setStatus("already_confirmed");
-    }
+        }, 1500);
+      }
+    };
+
+    check();
   }, []);
 
   return (
@@ -61,7 +69,6 @@ export default function ConfirmEmail() {
         </div>
       </motion.div>
 
-      {/* Card */}
       <AnimatePresence mode="wait">
         <motion.div
           key={status}
@@ -77,7 +84,7 @@ export default function ConfirmEmail() {
               <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
                 <Loader2 className="w-9 h-9 text-[#7E22CE] animate-spin" />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900">Verificando seu e-mail...</h1>
+              <h1 className="text-2xl font-bold text-slate-900">Verificando sua conta...</h1>
               <p className="text-slate-500 text-sm">Aguarde um momento.</p>
             </div>
           )}
@@ -160,7 +167,6 @@ export default function ConfirmEmail() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Footer */}
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

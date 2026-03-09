@@ -150,6 +150,7 @@ const Auth = () => {
           email,
           password,
           options: {
+            emailRedirectTo: "https://crm-r2.vercel.app/confirm-email",
             data: {
               full_name: fullName,
               phone,

@@ -152,7 +152,7 @@ const Auth = () => {
       if (!selectedPlan) { toast.error("Selecione um plano para começar"); return; }
       if (!fullName) { toast.error("Informe seu nome completo"); return; }
       if (!/^[a-zA-Z\u00C0-\u00FF\s]+$/.test(fullName)) { toast.error("Nome deve conter apenas letras"); return; }
-      if (!phone || phone.length < 14) { toast.error("Informe um celular válido"); return; }
+      if (!phone || phone.replace(/\D/g, "").length < 11) { toast.error("Informe um celular válido com DDD"); return; }
       setLoading(true);
       try {
         const phoneExists = await checkPhoneExists(phone);

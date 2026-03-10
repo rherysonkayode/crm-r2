@@ -8,13 +8,11 @@ export interface BancoConfig {
   cor: string;
   corTexto: string;
   maxPrazo: number;
-  minImovel: number;        // valor minimo do imovel aceito pelo banco
-  tag: number;              // tarifa de avaliacao do bem (cobrada na contratacao)
-  mipAnual: number;         // seguro MIP (% ao ano sobre saldo devedor)
-  dfiAnual: number;         // seguro DFI (% ao ano sobre valor do imovel)
+  minImovel: number;
+  tag: number;
+  mipAnual: number;
+  dfiAnual: number;
   maxFinancingPercent: {
-    // LTV diferenciado por sistema de amortizacao SAC vs PRICE
-    // Ex: Caixa SBPE SAC=80%, PRICE=50% | demais bancos SAC=PRICE=80%
     residencial: { sac: number; price: number };
     comercial: { sac: number; price: number };
     rural: { sac: number; price: number };
@@ -26,191 +24,175 @@ export interface BancoConfig {
   };
 }
 
-// ─── REGRAS SFH / MCMV / FGTS (2026) ──────────────────────────────────────────
-// SFH 2026:
-//   Teto imovel: R$ 2.250.000 (acima = SFI, sem FGTS)
-//   Juros max: 12% a.a. + TR (acima = opera no SFI)
-//   FGTS: entrada | amortizacao/quitacao a cada 2 anos | ate 80% parcelas por 12 meses
-//
-// FGTS — elegibilidade do comprador:
-//   Min 3 anos FGTS acumulado (consecutivos ou nao, mesma ou diferentes empresas)
-//   Sem outro financiamento ativo no SFH em qualquer estado
-//   Sem imovel residencial na mesma cidade/regiao metropolitana de moradia ou trabalho
-//   TODOS os bancos aceitam FGTS — e lei federal, nao beneficio comercial
-//
-// MCMV 2026 — 4 faixas (exclusivo Caixa):
-//   Faixa 1: renda ate R$ 2.850 | teto R$ 255-270k | subsidio ate R$ 55k
-//   Faixa 2: renda ate R$ 4.700 | teto R$ 255-270k | subsidio ate R$ 35k
-//   Faixa 3: renda ate R$ 8.600 | teto R$ 350k     | juros reduzidos
-//   Faixa 4: renda ate R$12.000 | teto R$ 500k     | sem subsidio, juros ~10.47%
-//
-// Novo vs Usado no SBPE: NAO altera taxa de juros
-//   O que altera a taxa e o SEGMENTO DE RELACIONAMENTO com o banco
-// ───────────────────────────────────────────────────────────────────────────────
+// ─── FALLBACK HARDCODED (mar/2026) ────────────────────────────────────────────
+// Usado quando o Supabase não responde ou a tabela está vazia
+// Atualizar aqui só como fallback — fonte da verdade é o Supabase
+const BANCOS_FALLBACK: BancoConfig[] = [
+  {
+    id: "caixa", nome: "Caixa Economica", sigla: "CEF", cor: "#0A4B8C", corTexto: "#FFFFFF",
+    maxPrazo: 420, minImovel: 80000, tag: 1200, mipAnual: 0.037, dfiAnual: 0.00825,
+    maxFinancingPercent: {
+      residencial: { sac: 80, price: 50 },
+      comercial:   { sac: 70, price: 50 },
+      rural:       { sac: 70, price: 50 },
+    },
+    taxas: {
+      residencial: { sac: 11.49, price: 11.49 },
+      comercial:   { sac: 12.00, price: 12.00 },
+      rural:       { sac: 11.50, price: 11.50 },
+    },
+  },
+  {
+    id: "bb", nome: "Banco do Brasil", sigla: "BB", cor: "#003D7C", corTexto: "#FFCC00",
+    maxPrazo: 420, minImovel: 80000, tag: 1500, mipAnual: 0.038, dfiAnual: 0.00825,
+    maxFinancingPercent: {
+      residencial: { sac: 70, price: 70 },
+      comercial:   { sac: 60, price: 60 },
+      rural:       { sac: 60, price: 60 },
+    },
+    taxas: {
+      residencial: { sac: 12.00, price: 12.00 },
+      comercial:   { sac: 12.50, price: 12.50 },
+      rural:       { sac: 12.00, price: 12.00 },
+    },
+  },
+  {
+    id: "itau", nome: "Itau", sigla: "ITA", cor: "#EC7000", corTexto: "#FFFFFF",
+    maxPrazo: 420, minImovel: 97561, tag: 850, mipAnual: 0.038, dfiAnual: 0.00825,
+    maxFinancingPercent: {
+      residencial: { sac: 80, price: 80 },
+      comercial:   { sac: 70, price: 70 },
+      rural:       { sac: 70, price: 70 },
+    },
+    taxas: {
+      residencial: { sac: 12.19, price: 12.19 },
+      comercial:   { sac: 12.50, price: 12.50 },
+      rural:       { sac: 12.20, price: 12.20 },
+    },
+  },
+  {
+    id: "santander", nome: "Santander", sigla: "SAN", cor: "#CC3333", corTexto: "#FFFFFF",
+    maxPrazo: 420, minImovel: 100000, tag: 1950, mipAnual: 0.036, dfiAnual: 0.00825,
+    maxFinancingPercent: {
+      residencial: { sac: 80, price: 80 },
+      comercial:   { sac: 70, price: 70 },
+      rural:       { sac: 70, price: 60 },
+    },
+    taxas: {
+      residencial: { sac: 13.19, price: 13.19 },
+      comercial:   { sac: 13.50, price: 13.50 },
+      rural:       { sac: 13.20, price: 13.20 },
+    },
+  },
+  {
+    id: "bradesco", nome: "Bradesco", sigla: "BRA", cor: "#660099", corTexto: "#FFFFFF",
+    maxPrazo: 420, minImovel: 100000, tag: 2114.03, mipAnual: 0.037, dfiAnual: 0.00825,
+    maxFinancingPercent: {
+      residencial: { sac: 80, price: 80 },
+      comercial:   { sac: 60, price: 60 },
+      rural:       { sac: 60, price: 60 },
+    },
+    taxas: {
+      residencial: { sac: 12.79, price: 12.79 },
+      comercial:   { sac: 13.50, price: 13.50 },
+      rural:       { sac: 13.00, price: 13.00 },
+    },
+  },
+  {
+    id: "inter", nome: "Banco Inter", sigla: "INT", cor: "#FF7A00", corTexto: "#FFFFFF",
+    maxPrazo: 420, minImovel: 200000, tag: 5000, mipAnual: 0.038, dfiAnual: 0.00825,
+    maxFinancingPercent: {
+      residencial: { sac: 80, price: 80 },
+      comercial:   { sac: 70, price: 60 },
+      rural:       { sac: 70, price: 60 },
+    },
+    taxas: {
+      residencial: { sac: 8.20, price: 8.20 },
+      comercial:   { sac: 13.76, price: 13.76 },
+      rural:       { sac: 13.00, price: 13.00 },
+    },
+  },
+];
 
+// ─── MAPPER: row do Supabase → BancoConfig ────────────────────────────────────
+function rowToBancoConfig(row: any): BancoConfig {
+  return {
+    id: row.banco_id,
+    nome: row.nome,
+    sigla: row.sigla,
+    cor: row.cor,
+    corTexto: row.cor_texto,
+    maxPrazo: row.max_prazo,
+    minImovel: Number(row.min_imovel),
+    tag: Number(row.tag),
+    mipAnual: Number(row.mip_anual),
+    dfiAnual: Number(row.dfi_anual),
+    maxFinancingPercent: {
+      residencial: { sac: Number(row.ltv_residencial_sac), price: Number(row.ltv_residencial_price) },
+      comercial:   { sac: Number(row.ltv_comercial_sac),   price: Number(row.ltv_comercial_price)   },
+      rural:       { sac: Number(row.ltv_rural_sac),       price: Number(row.ltv_rural_price)       },
+    },
+    taxas: {
+      residencial: { sac: Number(row.taxa_residencial_sac), price: Number(row.taxa_residencial_price) },
+      comercial:   { sac: Number(row.taxa_comercial_sac),   price: Number(row.taxa_comercial_price)   },
+      rural:       { sac: Number(row.taxa_rural_sac),       price: Number(row.taxa_rural_price)       },
+    },
+  };
+}
+
+// ─── HOOK PRINCIPAL ───────────────────────────────────────────────────────────
 export const useTaxasBancarias = () => {
-  // Taxas: balcao (sem relacionamento) como padrao conservador — mar/2026
-  // Fontes: simuladores oficiais + pesquisa publica dos bancos
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["taxas_bancarias"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("taxas_bancarias")
+        .select("*")
+        .order("banco_id");
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+      return data.map(rowToBancoConfig);
+    },
+    staleTime: 1000 * 60 * 10, // revalida a cada 10 minutos
+    retry: 1,
+  });
 
-  const bancos: BancoConfig[] = [
-    {
-      id: "caixa",
-      nome: "Caixa Economica",
-      sigla: "CEF",
-      cor: "#0A4B8C",
-      corTexto: "#FFFFFF",
-      maxPrazo: 420,
-      minImovel: 80000,
-      tag: 1200.00,       // estimativa (varia por regiao)
-      mipAnual: 0.037,
-      dfiAnual: 0.00825,
-      maxFinancingPercent: {
-        // SBPE: SAC = 80% | PRICE = 50% (flexibilizacoes recentes ate 70% em alguns perfis)
-        residencial: { sac: 80, price: 50 },
-        comercial:   { sac: 70, price: 50 },
-        rural:       { sac: 70, price: 50 },
-      },
-      taxas: {
-        // Balcao: 11.19-11.49% a.a.+TR | Com relacionamento: a partir de 10.26%
-        // Pro-Cotista FGTS: 8.00-9.01% | MCMV Faixa4 (renda ate R$12k): ~10.47%
-        residencial: { price: 11.49, sac: 11.49 },
-        comercial:   { price: 12.00, sac: 12.00 },
-        rural:       { price: 11.50, sac: 11.50 },
-      },
-    },
-    {
-      id: "bb",
-      nome: "Banco do Brasil",
-      sigla: "BB",
-      cor: "#003D7C",
-      corTexto: "#FFCC00",
-      maxPrazo: 420,
-      minImovel: 80000,
-      tag: 1500.00,       // a confirmar
-      mipAnual: 0.038,
-      dfiAnual: 0.00825,
-      maxFinancingPercent: {
-        // LTV conservador 70% (pode exigir ate 50% entrada em alguns perfis)
-        residencial: { sac: 70, price: 70 },
-        comercial:   { sac: 60, price: 60 },
-        rural:       { sac: 60, price: 60 },
-      },
-      taxas: {
-        // Balcao: 12.00% a.a.+TR | Pro-Cotista FGTS: a partir de 9.00%
-        // BB cobra tarifa de administracao mensal adicional
-        residencial: { price: 12.00, sac: 12.00 },
-        comercial:   { price: 12.50, sac: 12.50 },
-        rural:       { price: 12.00, sac: 12.00 },
-      },
-    },
-    {
-      id: "itau",
-      nome: "Itau",
-      sigla: "ITA",
-      cor: "#EC7000",
-      corTexto: "#FFFFFF",
-      maxPrazo: 420,
-      minImovel: 97561,
-      tag: 850.00,        // avaliacao do imovel — site Itau (fev/2026)
-      mipAnual: 0.038,
-      dfiAnual: 0.00825,
-      maxFinancingPercent: {
-        // ate 80% residencial (82% com cartorio em casos especificos — padrao: 80%)
-        // comercial: prazo limitado a 240 meses na logica do Calculators.tsx
-        residencial: { sac: 80, price: 80 },
-        comercial:   { sac: 70, price: 70 },
-        rural:       { sac: 70, price: 70 },
-      },
-      taxas: {
-        // Balcao (sem relacionamento): 12.19% a.a.+TR
-        // Com relacionamento (Varejo/Uniclass/Personnalite): a partir de 11.60%
-        // Poupanca: a partir de 8.32% a.a.+rendimento poupanca
-        residencial: { price: 12.19, sac: 12.19 },
-        comercial:   { price: 12.50, sac: 12.50 },
-        rural:       { price: 12.20, sac: 12.20 },
-      },
-    },
-    {
-      id: "santander",
-      nome: "Santander",
-      sigla: "SAN",
-      cor: "#CC3333",
-      corTexto: "#FFFFFF",
-      maxPrazo: 420,
-      minImovel: 100000,
-      tag: 1950.00,       // fonte: CrediMorar
-      mipAnual: 0.036,
-      dfiAnual: 0.00825,
-      maxFinancingPercent: {
-        // residencial: 80% | comercial: 70% em ate 30 anos (prazo limitado no Calculators)
-        // Permite incorporar ITBI + despesas cartorias ao financiamento
-        residencial: { sac: 80, price: 80 },
-        comercial:   { sac: 70, price: 70 },
-        rural:       { sac: 70, price: 60 },
-      },
-      taxas: {
-        // Balcao (sem relacionamento): 13.19% a.a.+TR
-        // Com relacionamento (VanGogh/Select): 11.69-11.79% a.a.+TR
-        residencial: { price: 13.19, sac: 13.19 },
-        comercial:   { price: 13.50, sac: 13.50 },
-        rural:       { price: 13.20, sac: 13.20 },
-      },
-    },
-    {
-      id: "bradesco",
-      nome: "Bradesco",
-      sigla: "BRA",
-      cor: "#660099",
-      corTexto: "#FFFFFF",
-      maxPrazo: 420,
-      minImovel: 100000,
-      tag: 2114.03,       // fonte: CrediMorar + site Bradesco
-      mipAnual: 0.037,
-      dfiAnual: 0.00825,
-      maxFinancingPercent: {
-        // ate 80% residencial
-        // Nota: PRICE limita comprometimento de renda a 15% (SAC: ate 30%)
-        residencial: { sac: 80, price: 80 },
-        comercial:   { sac: 60, price: 60 },
-        rural:       { sac: 60, price: 60 },
-      },
-      taxas: {
-        // Balcao (sem relacionamento): 12.79% a.a.+TR
-        // Com relacionamento (Exclusive/Prime): a partir de 11.99%
-        // Poupanca: a partir de 5.83% a.a.+rendimento poupanca
-        residencial: { price: 12.79, sac: 12.79 },
-        comercial:   { price: 13.50, sac: 13.50 },
-        rural:       { price: 13.00, sac: 13.00 },
-      },
-    },
-    {
-      id: "inter",
-      nome: "Banco Inter",
-      sigla: "INT",
-      cor: "#FF7A00",
-      corTexto: "#FFFFFF",
-      maxPrazo: 420,
-      minImovel: 200000,
-      tag: 5000.00,       // fonte: CrediMorar
-      mipAnual: 0.038,
-      dfiAnual: 0.00825,
-      maxFinancingPercent: {
-        // ate 80% residencial
-        residencial: { sac: 80, price: 80 },
-        comercial:   { sac: 70, price: 60 },
-        rural:       { sac: 70, price: 60 },
-      },
-      taxas: {
-        // ATENCAO: Inter usa taxa+IPCA (pos-fixado), NAO +TR como os demais
-        // IPCA residencial: 8.20-9.50% a.a.+IPCA | CET: 10.63% | CESH: 3.46%
-        // Linha TR alternativa: ~13.76% a.a.+TR
-        // Parcela pode oscilar mensalmente conforme IPCA
-        residencial: { price: 8.20, sac: 8.20 },
-        comercial:   { price: 13.76, sac: 13.76 },
-        rural:       { price: 13.00, sac: 13.00 },
-      },
-    },
-  ];
+  // Se Supabase retornou dados válidos, usa; senão fallback hardcoded
+  const bancos = (data && data.length > 0) ? data : BANCOS_FALLBACK;
 
-  return { bancos, loading: false };
+  return {
+    bancos,
+    loading: isLoading,
+    fromSupabase: !!(data && data.length > 0),
+    error: error ?? null,
+  };
 };
+
+// ─── HELPER: converte BancoConfig de volta para row (para salvar no Supabase) ─
+export function bancoConfigToRow(banco: BancoConfig, userId?: string) {
+  return {
+    banco_id: banco.id,
+    nome: banco.nome,
+    sigla: banco.sigla,
+    cor: banco.cor,
+    cor_texto: banco.corTexto,
+    max_prazo: banco.maxPrazo,
+    min_imovel: banco.minImovel,
+    tag: banco.tag,
+    mip_anual: banco.mipAnual,
+    dfi_anual: banco.dfiAnual,
+    ltv_residencial_sac:   banco.maxFinancingPercent.residencial.sac,
+    ltv_residencial_price: banco.maxFinancingPercent.residencial.price,
+    ltv_comercial_sac:     banco.maxFinancingPercent.comercial.sac,
+    ltv_comercial_price:   banco.maxFinancingPercent.comercial.price,
+    ltv_rural_sac:         banco.maxFinancingPercent.rural.sac,
+    ltv_rural_price:       banco.maxFinancingPercent.rural.price,
+    taxa_residencial_sac:   banco.taxas.residencial.sac,
+    taxa_residencial_price: banco.taxas.residencial.price,
+    taxa_comercial_sac:     banco.taxas.comercial.sac,
+    taxa_comercial_price:   banco.taxas.comercial.price,
+    taxa_rural_sac:         banco.taxas.rural.sac,
+    taxa_rural_price:       banco.taxas.rural.price,
+    ...(userId ? { updated_by: userId } : {}),
+  };
+}

@@ -3,246 +3,299 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { RefreshCw, Save, RotateCcw, Info, ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Save, RefreshCw, AlertCircle, CheckCircle2, Database, HardDrive, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BancoConfig, useTaxasBancarias } from "@/hooks/useTaxasBancarias";
-import { AnimatePresence, motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTaxasBancarias, BancoConfig, bancoConfigToRow } from "@/hooks/useTaxasBancarias";
+import { toast } from "sonner";
 
-type Props = {
+interface ModalTaxasBancariasProps {
   open: boolean;
   onClose: () => void;
-  onSaved: (bancos: BancoConfig[]) => void;
+  onSaved: () => void;
+}
+
+type TipoImovel = "residencial" | "comercial" | "rural";
+
+const TIPOS: TipoImovel[] = ["residencial", "comercial", "rural"];
+const TIPO_LABEL: Record<TipoImovel, string> = {
+  residencial: "Residencial",
+  comercial: "Comercial",
+  rural: "Rural",
 };
 
-const TIPOS = [
-  { id: "residencial" as const, label: "Residencial" },
-  { id: "comercial" as const, label: "Comercial" },
-  { id: "rural" as const, label: "Rural" },
-];
+// Campo numérico formatado para % ou R$
+const NumInput = ({
+  value, onChange, suffix = "%", step = "0.01", min = "0",
+}: {
+  value: number; onChange: (v: number) => void; suffix?: string; step?: string; min?: string;
+}) => (
+  <div className="relative flex items-center">
+    <Input
+      type="number"
+      step={step}
+      min={min}
+      value={value}
+      onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+      className="pr-8 text-right text-xs h-8"
+    />
+    <span className="absolute right-2 text-xs text-muted-foreground pointer-events-none">{suffix}</span>
+  </div>
+);
 
-export const ModalTaxasBancarias = ({ open, onClose, onSaved }: Props) => {
-  const { bancos, salvando, salvar, restaurarPadrao } = useTaxasBancarias();
-  const [draft, setDraft] = useState<BancoConfig[]>([]);
-  const [expandido, setExpandido] = useState<string | null>("caixa");
-  const [confirmandoReset, setConfirmandoReset] = useState(false);
+export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancariasProps) => {
+  const { bancos: bancosOriginais, fromSupabase } = useTaxasBancarias();
+  const queryClient = useQueryClient();
 
+  const [editados, setEditados] = useState<BancoConfig[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const [expandido, setExpandido] = useState<string | null>(null);
+  const [abaSelecionada, setAbaSelecionada] = useState<TipoImovel>("residencial");
+
+  // Inicializa com cópia editável ao abrir
   useEffect(() => {
-    if (open) {
-      // Cria uma cópia profunda para não editar o estado global antes de clicar em salvar
-      setDraft(JSON.parse(JSON.stringify(bancos)));
-      setConfirmandoReset(false);
-    }
-  }, [open, bancos]);
+    if (open) setEditados(JSON.parse(JSON.stringify(bancosOriginais)));
+  }, [open, bancosOriginais]);
 
-  const atualizarTaxa = (
-    bancoId: string,
-    tipo: "residencial" | "comercial" | "rural",
-    sistema: "price" | "sac",
-    valor: string
-  ) => {
-    const num = parseFloat(valor.replace(",", "."));
-    setDraft((prev) =>
-      prev.map((b) =>
-        b.id === bancoId
-          ? { ...b, taxas: { ...b.taxas, [tipo]: { ...b.taxas[tipo], [sistema]: isNaN(num) ? 0 : num } } }
-          : b
-      )
+  const atualizar = (bancoId: string, campo: string, valor: number) => {
+    setEditados((prev) =>
+      prev.map((b) => {
+        if (b.id !== bancoId) return b;
+        // Campos planos
+        if (["maxPrazo", "minImovel", "tag", "mipAnual", "dfiAnual"].includes(campo)) {
+          return { ...b, [campo]: valor };
+        }
+        // Taxas: ex "taxas.residencial.sac"
+        if (campo.startsWith("taxas.")) {
+          const [, tipo, sis] = campo.split(".") as [string, TipoImovel, "sac" | "price"];
+          return { ...b, taxas: { ...b.taxas, [tipo]: { ...b.taxas[tipo], [sis]: valor } } };
+        }
+        // LTV: ex "ltv.residencial.sac"
+        if (campo.startsWith("ltv.")) {
+          const [, tipo, sis] = campo.split(".") as [string, TipoImovel, "sac" | "price"];
+          return {
+            ...b,
+            maxFinancingPercent: {
+              ...b.maxFinancingPercent,
+              [tipo]: { ...b.maxFinancingPercent[tipo], [sis]: valor },
+            },
+          };
+        }
+        return b;
+      })
     );
   };
 
-  const atualizarCampo = (bancoId: string, campo: "maxPrazo" | "minEntradaPercent", valor: string) => {
-    const num = parseInt(valor);
-    setDraft((prev) =>
-      prev.map((b) => (b.id === bancoId ? { ...b, [campo]: isNaN(num) ? 0 : num } : b))
-    );
+  const salvar = async () => {
+    setSalvando(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const rows = editados.map((b) => bancoConfigToRow(b, user?.id));
+
+      const { error } = await supabase
+        .from("taxas_bancarias")
+        .upsert(rows, { onConflict: "banco_id" });
+
+      if (error) throw error;
+
+      // Invalida o cache para forçar re-fetch
+      await queryClient.invalidateQueries({ queryKey: ["taxas_bancarias"] });
+      toast.success("Taxas salvas com sucesso! Todos os usuários verão os novos valores.");
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      toast.error(`Erro ao salvar: ${err.message}`);
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const handleSalvar = async () => {
-    const sucesso = await salvar(draft);
-    if (sucesso) {
-      toast.success("Taxas salvas com sucesso!");
-      onSaved(draft);
-      onClose();
-    } else {
-      toast.warning("Salvo localmente — erro ao sincronizar com o servidor.");
-      onSaved(draft);
-      onClose();
-    }
+  const resetar = () => {
+    setEditados(JSON.parse(JSON.stringify(bancosOriginais)));
+    toast.info("Alterações descartadas");
   };
 
-  const handleRestaurar = async () => {
-    if (!confirmandoReset) {
-      setConfirmandoReset(true);
-      return;
-    }
-    const sucesso = await restaurarPadrao();
-    if (sucesso) {
-      toast.success("Taxas restauradas para os valores padrão.");
-      onSaved(bancos);
-      onClose();
-    }
-    setConfirmandoReset(false);
-  };
+  if (!editados.length) return null;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span className="text-[#7E22CE]">🏦</span> Taxas dos Bancos
-          </DialogTitle>
-          <DialogDescription className="flex items-start gap-2 text-sm">
-            <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
-            Estas taxas são estimativas personalizadas. Os valores ficam salvos na sua conta e são usados nas simulações.
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-lg font-bold">Editar Taxas Bancárias</DialogTitle>
+              <DialogDescription className="text-xs mt-0.5">
+                Alterações são salvas no banco de dados e refletem imediatamente para todos os usuários.
+              </DialogDescription>
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "gap-1.5 text-xs",
+                fromSupabase
+                  ? "border-green-300 text-green-700 bg-green-50"
+                  : "border-amber-300 text-amber-700 bg-amber-50"
+              )}
+            >
+              {fromSupabase
+                ? <><Database className="w-3 h-3" /> Supabase</>
+                : <><HardDrive className="w-3 h-3" /> Fallback local</>
+              }
+            </Badge>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-3 mt-2">
-          {draft.map((banco) => {
-            const aberto = expandido === banco.id;
-            return (
-              <div key={banco.id} className="border border-slate-200 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpandido(aberto ? null : banco.id)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
-                  style={{ borderLeft: `4px solid ${banco.cor}` }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                      style={{ backgroundColor: banco.cor, color: banco.corTexto }}
-                    >
-                      {banco.sigla}
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold text-sm text-slate-800">{banco.nome}</p>
-                      <p className="text-xs text-slate-500">
-                        Padrão: {banco.taxas.residencial.price}% (PRICE) · {banco.taxas.residencial.sac}% (SAC)
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", aberto && "rotate-180")} />
-                </button>
+        {!fromSupabase && (
+          <Alert className="bg-amber-50 border-amber-200 py-2">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+            <AlertDescription className="text-xs text-amber-800">
+              Tabela <code>taxas_bancarias</code> não encontrada no Supabase. Execute a migration SQL primeiro, depois salve aqui para persistir os dados.
+            </AlertDescription>
+          </Alert>
+        )}
 
-                <AnimatePresence>
-                  {aberto && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-4 pb-4 pt-2 space-y-4 bg-slate-50/50">
-                        <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                            Taxas anuais (%)
-                          </p>
-                          <div className="space-y-3">
-                            {TIPOS.map(({ id, label }) => (
-                              <div key={id} className="grid grid-cols-3 gap-3 items-center">
-                                <Label className="text-sm text-slate-600">{label}</Label>
-                                <div className="space-y-1">
-                                  <p className="text-xs text-slate-400 font-medium">PRICE</p>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="30"
-                                    value={draft.find((b) => b.id === banco.id)?.taxas[id].price ?? ""}
-                                    onChange={(e) => atualizarTaxa(banco.id, id, "price", e.target.value)}
-                                    className="h-8 text-sm"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-xs text-slate-400 font-medium">SAC</p>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max="30"
-                                    value={draft.find((b) => b.id === banco.id)?.taxas[id].sac ?? ""}
-                                    onChange={(e) => atualizarTaxa(banco.id, id, "sac", e.target.value)}
-                                    className="h-8 text-sm"
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+        {/* Tabs por tipo de imóvel */}
+        <Tabs value={abaSelecionada} onValueChange={(v) => setAbaSelecionada(v as TipoImovel)} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="w-fit">
+            {TIPOS.map((t) => (
+              <TabsTrigger key={t} value={t} className="text-xs">{TIPO_LABEL[t]}</TabsTrigger>
+            ))}
+          </TabsList>
 
-                        <div className="border-t border-slate-200 pt-3">
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                            Configurações do Banco
-                          </p>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <Label className="text-sm text-slate-600">Prazo máximo (meses)</Label>
-                              <Input
-                                type="number"
-                                min="60"
-                                max="480"
-                                value={draft.find((b) => b.id === banco.id)?.maxPrazo ?? ""}
-                                onChange={(e) => atualizarCampo(banco.id, "maxPrazo", e.target.value)}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-sm text-slate-600">Entrada mínima (%)</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={draft.find((b) => b.id === banco.id)?.minEntradaPercent ?? ""}
-                                onChange={(e) => atualizarCampo(banco.id, "minEntradaPercent", e.target.value)}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                          </div>
+          <div className="flex-1 overflow-y-auto mt-3 pr-1 space-y-2">
+            {TIPOS.map((tipo) => (
+              <TabsContent key={tipo} value={tipo} className="mt-0 space-y-2">
+                {/* Cabeçalho das colunas */}
+                <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-2 px-3 py-1.5 bg-muted/60 rounded-lg text-xs font-semibold text-muted-foreground">
+                  <span>Banco</span>
+                  <span className="text-center">Taxa SAC (%)</span>
+                  <span className="text-center">Taxa PRICE (%)</span>
+                  <span className="text-center">LTV SAC (%)</span>
+                  <span className="text-center">LTV PRICE (%)</span>
+                </div>
+
+                {editados.map((banco) => (
+                  <div key={banco.id} className="border border-border rounded-xl overflow-hidden">
+                    {/* Linha principal */}
+                    <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-2 items-center px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0"
+                          style={{ backgroundColor: banco.cor, color: banco.corTexto }}
+                        >
+                          {banco.sigla}
                         </div>
+                        <span className="text-xs font-medium truncate">{banco.nome}</span>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
+                      <NumInput
+                        value={banco.taxas[tipo].sac}
+                        onChange={(v) => atualizar(banco.id, `taxas.${tipo}.sac`, v)}
+                      />
+                      <NumInput
+                        value={banco.taxas[tipo].price}
+                        onChange={(v) => atualizar(banco.id, `taxas.${tipo}.price`, v)}
+                      />
+                      <NumInput
+                        value={banco.maxFinancingPercent[tipo].sac}
+                        onChange={(v) => atualizar(banco.id, `ltv.${tipo}.sac`, v)}
+                        step="1"
+                      />
+                      <NumInput
+                        value={banco.maxFinancingPercent[tipo].price}
+                        onChange={(v) => atualizar(banco.id, `ltv.${tipo}.price`, v)}
+                        step="1"
+                      />
+                    </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200 mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRestaurar}
-            disabled={salvando}
-            className={cn(
-              "gap-2 text-slate-500 hover:text-slate-700",
-              confirmandoReset && "text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100"
-            )}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            {confirmandoReset ? "Confirmar reset?" : "Restaurar padrão"}
-          </Button>
+                    {/* Expandível: TAG, MIP, DFI, Prazo, Mínimo */}
+                    {tipo === "residencial" && (
+                      <>
+                        <button
+                          onClick={() => setExpandido(expandido === banco.id ? null : banco.id)}
+                          className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-slate-700 py-1.5 border-t border-dashed border-border bg-muted/20 transition-colors"
+                        >
+                          {expandido === banco.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {expandido === banco.id ? "Ocultar" : "Mais"} configurações (TAG, seguros, prazo)
+                        </button>
+                        {expandido === banco.id && (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-3 border-t border-border bg-muted/10">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">TAG (R$)</Label>
+                              <NumInput
+                                value={banco.tag}
+                                onChange={(v) => atualizar(banco.id, "tag", v)}
+                                suffix="R$"
+                                step="50"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">MIP a.a. (%)</Label>
+                              <NumInput
+                                value={banco.mipAnual}
+                                onChange={(v) => atualizar(banco.id, "mipAnual", v)}
+                                step="0.001"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">DFI a.a. (%)</Label>
+                              <NumInput
+                                value={banco.dfiAnual}
+                                onChange={(v) => atualizar(banco.id, "dfiAnual", v)}
+                                step="0.001"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Prazo max (meses)</Label>
+                              <NumInput
+                                value={banco.maxPrazo}
+                                onChange={(v) => atualizar(banco.id, "maxPrazo", v)}
+                                suffix="m"
+                                step="12"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Mín. imóvel (R$)</Label>
+                              <NumInput
+                                value={banco.minImovel}
+                                onChange={(v) => atualizar(banco.id, "minImovel", v)}
+                                suffix="R$"
+                                step="1000"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
 
+                <p className="text-xs text-muted-foreground px-1 pt-1">
+                  * LTV = percentual máximo financiável do valor do imóvel. Ex: 80% = entrada mínima de 20%.
+                  {tipo === "residencial" && " Caixa PRICE = 50% por regra SBPE."}
+                </p>
+              </TabsContent>
+            ))}
+          </div>
+        </Tabs>
+
+        {/* Rodapé */}
+        <div className="flex items-center justify-between pt-3 border-t border-border mt-2">
+          <p className="text-xs text-muted-foreground">
+            Última atualização: {fromSupabase ? "salva no Supabase" : "valores padrão (mar/2026)"}
+          </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose} disabled={salvando}>
-              Cancelar
+            <Button variant="outline" size="sm" onClick={resetar} disabled={salvando} className="gap-1.5 text-xs">
+              <RefreshCw className="w-3.5 h-3.5" /> Descartar
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSalvar}
-              disabled={salvando}
-              className="bg-[#7E22CE] hover:bg-[#6b21a8] gap-2"
-            >
-              {salvando ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Salvando...
-                </>
-              ) : (
-                <>
-                  <Save className="w-3.5 h-3.5" /> Salvar taxas
-                </>
-              )}
+            <Button size="sm" onClick={salvar} disabled={salvando} className="gap-1.5 text-xs bg-[#7E22CE] hover:bg-[#6b21a8]">
+              {salvando
+                ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Salvando...</>
+                : <><Save className="w-3.5 h-3.5" /> Salvar no Supabase</>
+              }
             </Button>
           </div>
         </div>

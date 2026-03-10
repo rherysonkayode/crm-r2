@@ -130,7 +130,7 @@ const Leads = () => {
       ({ error } = await supabase.from("leads").insert(payload as any));
     }
     if (error) { toast.error("Erro ao salvar lead: " + error.message); return; }
-    toast.success(editingLead ? "Lead atualizado!" : "Lead criado!");
+    toast.success(editingLead ? "Lead atualizado com sucesso!" : "Lead criado com sucesso!");
     queryClient.invalidateQueries({ queryKey: ["leads"] });
     setDialogOpen(false);
     resetForm();
@@ -689,6 +689,15 @@ const Leads = () => {
                     <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
                       <p className="text-sm text-slate-700 leading-relaxed">{viewingLead.notes}</p>
                     </div>
+                  </div>
+                )}
+
+                {viewingLead.created_at && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-slate-400">Criado em:</span>
+                    <span className="text-xs text-slate-600 font-medium">
+                      {new Date(viewingLead.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
                   </div>
                 )}
 

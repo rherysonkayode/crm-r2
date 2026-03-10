@@ -75,7 +75,8 @@ const ResetPassword = () => {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      setSuccess(true);
+     setSuccess(true);
+      await supabase.auth.signOut();
       setTimeout(() => navigate("/auth"), 3000);
     } catch (error: any) {
       toast.error(error.message || "Erro ao atualizar senha");

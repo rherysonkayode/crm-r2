@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, GripVertical, Trash2, ArrowRight } from "lucide-react";
+import { Plus, GripVertical, Trash2, ArrowRight, X, User, Home, DollarSign, Tag } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,12 +25,24 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const stages = [
-  { value: "novo", label: "Novo", color: "border-blue-400" },
-  { value: "contato", label: "Contato", color: "border-purple-400" },
-  { value: "proposta", label: "Proposta", color: "border-amber-400" },
-  { value: "fechado", label: "Fechado", color: "border-green-400" },
-  { value: "perdido", label: "Perdido", color: "border-red-400" },
+  { value: "novo",        label: "Novo",        color: "border-blue-400" },
+  { value: "contato",     label: "Contato",     color: "border-purple-400" },
+  { value: "qualificado", label: "Qualificado", color: "border-yellow-400" },
+  { value: "proposta",    label: "Proposta",    color: "border-amber-400" },
+  { value: "convertido",  label: "Convertido",  color: "border-emerald-400" },
+  { value: "fechado",     label: "Fechado",     color: "border-green-400" },
+  { value: "perdido",     label: "Perdido",     color: "border-red-400" },
 ];
+
+const stageBadge: Record<string, string> = {
+  novo:        "bg-blue-100 text-blue-700",
+  contato:     "bg-purple-100 text-purple-700",
+  qualificado: "bg-yellow-100 text-yellow-700",
+  proposta:    "bg-amber-100 text-amber-700",
+  convertido:  "bg-emerald-100 text-emerald-700",
+  fechado:     "bg-green-100 text-green-700",
+  perdido:     "bg-red-100 text-red-700",
+};
 
 const Funnel = () => {
   const { data: deals } = useDeals();
@@ -44,9 +57,8 @@ const Funnel = () => {
   const [moveStage, setMoveStage] = useState<string>("");
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingDrop, setPendingDrop] = useState<{ dealId: string; newStage: string } | null>(null);
-
-  // Estado para o modal de exclusÃ£o bonito
   const [deleteDealId, setDeleteDealId] = useState<string | null>(null);
+  const [viewingDeal, setViewingDeal] = useState<any | null>(null);
 
   const [form, setForm] = useState({
     title: "", lead_id: "", property_id: "", value: "", stage: "novo",
@@ -57,7 +69,7 @@ const Funnel = () => {
   const handleCreate = async () => {
     if (!profile) return;
     if (!form.title.trim() && !form.lead_id) {
-      toast.error("Informe um tÃ­tulo ou selecione um lead");
+      toast.error("Informe um titulo ou selecione um lead");
       return;
     }
 
@@ -83,8 +95,8 @@ const Funnel = () => {
     );
 
     const result = await response.json();
-    if (!result.success) { toast.error("Erro ao criar negÃ³cio: " + result.error); return; }
-    toast.success("NegÃ³cio criado com sucesso!");
+    if (!result.success) { toast.error("Erro ao criar negocio: " + result.error); return; }
+    toast.success("Negocio criado com sucesso!");
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDialogOpen(false);
     resetForm();
@@ -94,7 +106,7 @@ const Funnel = () => {
     if (!deleteDealId) return;
     const { error } = await supabase.from("deals").delete().eq("id", deleteDealId);
     if (error) { toast.error("Erro ao excluir"); return; }
-    toast.success("NegÃ³cio excluÃ­do!");
+    toast.success("Negocio excluido!");
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDeleteDealId(null);
   };
@@ -123,10 +135,25 @@ const Funnel = () => {
     );
 
     const result = await response.json();
-    if (!result.success) { toast.error("Erro ao mover negÃ³cio: " + result.error); return; }
+    if (!result.success) { toast.error("Erro ao mover negocio: " + result.error); return; }
+
+    // Atualiza o lead vinculado automaticamente
+    const deal = deals?.find(d => d.id === dealId);
+    if (deal?.lead_id) {
+      if (newStage === "fechado") {
+        await supabase.from("leads").update({ status: "convertido" }).eq("id", deal.lead_id);
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+      } else if (newStage === "perdido") {
+        await supabase.from("leads").update({ status: "perdido" }).eq("id", deal.lead_id);
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+      }
+    }
+
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDraggedDeal(null);
     setPendingDrop(null);
+    setMovingDeal(null);
+    setMoveStage("");
   };
 
   const handleMoveDeal = async (dealId: string, newStage: string) => {
@@ -136,8 +163,6 @@ const Funnel = () => {
       setConfirmDialogOpen(true);
     } else {
       await performMove(dealId, newStage);
-      setMovingDeal(null);
-      setMoveStage("");
     }
   };
 
@@ -148,7 +173,7 @@ const Funnel = () => {
   const totalFechado = deals?.filter(d => d.stage === "fechado").reduce((sum, d) => sum + (Number(d.value) || 0), 0) ?? 0;
   const totalNegocios = deals?.length ?? 0;
 
-  const getDealLabel = (deal: any) => deal.title || deal.leads?.name || "NegÃ³cio";
+  const getDealLabel = (deal: any) => deal.title || deal.leads?.name || "Negocio";
   const getDealSub = (deal: any) => deal.properties?.title || null;
 
   return (
@@ -158,16 +183,16 @@ const Funnel = () => {
           <div>
             <h1 className="text-2xl font-bold">Funil de Vendas</h1>
             <p className="text-muted-foreground">
-              {isCorretor ? "Seus negÃ³cios em andamento" : "Pipeline de negÃ³cios da equipe"}
+              {isCorretor ? "Seus negocios em andamento" : "Pipeline de negocios da equipe"}
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo NegÃ³cio</Button>
+              <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo Negocio</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Novo NegÃ³cio</DialogTitle>
+                <DialogTitle>Novo Negocio</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
@@ -183,16 +208,16 @@ const Funnel = () => {
 
                 {!form.lead_id && (
                   <div className="space-y-2">
-                    <Label>TÃ­tulo do negÃ³cio *</Label>
+                    <Label>Titulo do negocio *</Label>
                     <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Venda Apto Centro" />
-                    <p className="text-xs text-muted-foreground">ObrigatÃ³rio quando nÃ£o hÃ¡ lead selecionado</p>
+                    <p className="text-xs text-muted-foreground">Obrigatorio quando nao ha lead selecionado</p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label>ImÃ³vel <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Label>Imovel <span className="text-muted-foreground font-normal">(opcional)</span></Label>
                   <Select value={form.property_id} onValueChange={(v) => setForm({ ...form, property_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione um imÃ³vel" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Selecione um imovel" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Nenhum</SelectItem>
                       {properties?.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
@@ -216,15 +241,16 @@ const Funnel = () => {
                   </div>
                 </div>
 
-                <Button onClick={handleCreate} className="bg-[#7E22CE] hover:bg-[#6b21a8]">Criar NegÃ³cio</Button>
+                <Button onClick={handleCreate} className="bg-[#7E22CE] hover:bg-[#6b21a8]">Criar Negocio</Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* Cards de resumo */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de NegÃ³cios</p>
+            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de Negocios</p>
             <p className="text-3xl font-bold">{totalNegocios}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
@@ -237,6 +263,7 @@ const Funnel = () => {
           </div>
         </div>
 
+        {/* Colunas do Kanban */}
         <div className="flex gap-4 overflow-x-auto pb-4">
           {stages.map((stage) => {
             const stageDeals = deals?.filter((d) => d.stage === stage.value) || [];
@@ -266,10 +293,11 @@ const Funnel = () => {
                         draggable
                         onDragStart={(e) => { setDraggedDeal(deal.id); e.dataTransfer.setData("text/plain", deal.id); }}
                         onDragEnd={() => setDraggedDeal(null)}
-                        className="bg-card rounded-lg border border-border p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group"
+                        className="bg-card rounded-lg border border-border p-3 cursor-pointer hover:shadow-md transition-shadow group"
+                        onClick={() => !isMoving && setViewingDeal(deal)}
                       >
                         <div className="flex items-start gap-2">
-                          <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                          <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0 cursor-grab" onClick={(e) => e.stopPropagation()} />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-card-foreground truncate">{getDealLabel(deal)}</p>
                             {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
@@ -278,14 +306,14 @@ const Funnel = () => {
 
                           {!isMoving ? (
                             <button
-                              onClick={() => { setMovingDeal(deal.id); setMoveStage(deal.stage); }}
+                              onClick={(e) => { e.stopPropagation(); setMovingDeal(deal.id); setMoveStage(deal.stage); }}
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-blue-50 shrink-0"
                               title="Mover para outra etapa"
                             >
                               <ArrowRight className="w-3.5 h-3.5 text-blue-400" />
                             </button>
                           ) : (
-                            <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <select value={moveStage} onChange={(e) => setMoveStage(e.target.value)} className="text-xs border rounded p-0.5" autoFocus>
                                 <option value="">Mover para...</option>
                                 {stages.map(s => (
@@ -298,7 +326,7 @@ const Funnel = () => {
                           )}
 
                           <button
-                            onClick={() => setDeleteDealId(deal.id)}
+                            onClick={(e) => { e.stopPropagation(); setDeleteDealId(deal.id); }}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-50 shrink-0"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -313,13 +341,94 @@ const Funnel = () => {
           })}
         </div>
 
-        {/* Modal de Fechamento de Venda */}
+        {/* Modal de detalhes do negocio */}
+        {viewingDeal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setViewingDeal(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">{getDealLabel(viewingDeal)}</h2>
+                  <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full mt-1 inline-block", stageBadge[viewingDeal.stage] || "bg-slate-100 text-slate-600")}>
+                    {stages.find(s => s.value === viewingDeal.stage)?.label || viewingDeal.stage}
+                  </span>
+                </div>
+                <button onClick={() => setViewingDeal(null)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                {viewingDeal.leads?.name && (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                    <User className="w-4 h-4 text-purple-500 shrink-0" />
+                    <div>
+                      <p className="text-xs text-slate-400">Lead vinculado</p>
+                      <p className="font-medium text-slate-700">{viewingDeal.leads.name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {viewingDeal.properties?.title && (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                    <Home className="w-4 h-4 text-blue-500 shrink-0" />
+                    <div>
+                      <p className="text-xs text-slate-400">Imovel</p>
+                      <p className="font-medium text-slate-700">{viewingDeal.properties.title}</p>
+                    </div>
+                  </div>
+                )}
+
+                {viewingDeal.value && (
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                    <DollarSign className="w-4 h-4 text-green-500 shrink-0" />
+                    <div>
+                      <p className="text-xs text-slate-400">Valor</p>
+                      <p className="font-bold text-[#7E22CE]">{formatCurrency(Number(viewingDeal.value))}</p>
+                    </div>
+                  </div>
+                )}
+
+                {viewingDeal.created_at && (
+                  <div className="flex items-center gap-2 pt-1 text-xs text-slate-400">
+                    <span>Criado em:</span>
+                    <span className="font-medium text-slate-500">
+                      {new Date(viewingDeal.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setDeleteDealId(viewingDeal.id); setViewingDeal(null); }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2 text-red-400" /> Excluir
+                </Button>
+                <Button
+                  className="flex-1 bg-[#7E22CE] hover:bg-purple-700"
+                  onClick={() => { setMovingDeal(viewingDeal.id); setMoveStage(viewingDeal.stage); setViewingDeal(null); }}
+                >
+                  <ArrowRight className="w-4 h-4 mr-2" /> Mover etapa
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal de Confirmacao de Fechamento */}
         <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar venda</AlertDialogTitle>
               <AlertDialogDescription>
-                Ao mover este negÃ³cio para "Fechado", o imÃ³vel associado serÃ¡ marcado como "Vendido". Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita automaticamente.
+                Ao mover este negocio para "Fechado", o lead associado sera marcado como "Convertido". Esta acao nao podera ser desfeita automaticamente.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -334,13 +443,13 @@ const Funnel = () => {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Modal de ExclusÃ£o de NegÃ³cio */}
+        {/* Modal de Exclusao */}
         <AlertDialog open={!!deleteDealId} onOpenChange={(isOpen) => !isOpen && setDeleteDealId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir NegÃ³cio Permanentemente</AlertDialogTitle>
+              <AlertDialogTitle>Excluir Negocio</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir este negÃ³cio do funil? Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita. (Nota: O Lead e o ImÃ³vel associados NÃƒO serÃ£o apagados).
+                Tem certeza que deseja excluir este negocio do funil? O Lead e o Imovel associados NAO serao apagados.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

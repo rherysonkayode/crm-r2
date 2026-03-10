@@ -1,4 +1,4 @@
-import { AppLayout } from "@/components/AppLayout";
+﻿import { AppLayout } from "@/components/AppLayout";
 import { StatCard } from "@/components/StatCard";
 import { useLeads, useProperties, useDeals, useProfiles } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,11 +55,13 @@ const Dashboard = () => {
     .reduce((sum, d) => sum + (Number(d.value) || 0), 0) ?? 0;
 
   const funnelStages = [
-    { name: "Novo",     value: deals?.filter(d => d.stage === "novo").length ?? 0,     color: "#D8B4E2" },
-    { name: "Contato",  value: deals?.filter(d => d.stage === "contato").length ?? 0,  color: "#C084FC" },
-    { name: "Proposta", value: deals?.filter(d => d.stage === "proposta").length ?? 0, color: "#9333EA" },
-    { name: "Fechado",  value: deals?.filter(d => d.stage === "fechado").length ?? 0,  color: "#7E22CE" },
-    { name: "Perdido",  value: deals?.filter(d => d.stage === "perdido").length ?? 0,  color: "#F87171" },
+    { name: "Novo",        value: deals?.filter(d => d.stage === "novo").length ?? 0,        color: "#D8B4E2" },
+    { name: "Contato",     value: deals?.filter(d => d.stage === "contato").length ?? 0,     color: "#C084FC" },
+    { name: "Qualificado", value: deals?.filter(d => d.stage === "qualificado").length ?? 0, color: "#A855F7" },
+    { name: "Proposta",    value: deals?.filter(d => d.stage === "proposta").length ?? 0,    color: "#9333EA" },
+    { name: "Convertido",  value: deals?.filter(d => d.stage === "convertido").length ?? 0,  color: "#16A34A" },
+    { name: "Fechado",     value: deals?.filter(d => d.stage === "fechado").length ?? 0,     color: "#7E22CE" },
+    { name: "Perdido",     value: deals?.filter(d => d.stage === "perdido").length ?? 0,     color: "#F87171" },
   ];
 
   const profilesList = (profiles || []) as ProfileWithStatus[];
@@ -86,26 +88,26 @@ const Dashboard = () => {
     <AppLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
 
-        {/* Aviso de trial — aparece UMA vez */}
+        {/* Aviso de trial â€” aparece UMA vez */}
         {profile?.subscription_status === "trial" && profile.trial_end && (
           <Alert className="bg-blue-50 border-blue-200">
             <Clock className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-700">
-              ⏳ Seu período de teste termina em{" "}
-              {Math.max(0, differenceInDays(new Date(profile.trial_end), new Date()))} dia(s).
+              â³ Seu perÃ­odo de teste termina em{" "}
+              {(() => { const d = Math.max(0, differenceInDays(new Date(profile.trial_end), new Date())); return `${d} ${d === 1 ? "dia" : "dias"}`; })()}.
               Aproveite para explorar todas as funcionalidades!
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Cabeçalho */}
+        {/* CabeÃ§alho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Dashboard</h1>
             <p className="text-sm sm:text-base text-slate-500 font-medium">
               {isCorretor
-                ? `Olá, ${profile?.full_name?.split(" ")[0] || "Corretor"}! Aqui estão suas métricas.`
-                : "Visão geral da sua imobiliária"}
+                ? `OlÃ¡, ${profile?.full_name?.split(" ")[0] || "Corretor"}! Aqui estÃ£o suas mÃ©tricas.`
+                : "VisÃ£o geral da sua imobiliÃ¡ria"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -118,7 +120,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Cards de métricas */}
+        {/* Cards de mÃ©tricas */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 sm:h-32 rounded-2xl" />)
@@ -132,8 +134,8 @@ const Dashboard = () => {
           ) : (
             <>
               <StatCard title="Total de Leads"      value={totalLeads}                  icon={Users}     accentColor="primary"  />
-              <StatCard title="Imóveis"             value={totalProperties}             icon={Building2} accentColor="info"     />
-              <StatCard title="Negócios Fechados"   value={closedDeals}                 icon={Handshake} accentColor="success"  />
+              <StatCard title="ImÃ³veis"             value={totalProperties}             icon={Building2} accentColor="info"     />
+              <StatCard title="NegÃ³cios Fechados"   value={closedDeals}                 icon={Handshake} accentColor="success"  />
               <StatCard title="Receita Total"       value={formatCurrency(totalRevenue)} icon={DollarSign} accentColor="warning" />
             </>
           )}
@@ -163,7 +165,7 @@ const Dashboard = () => {
                     <Tooltip
                       cursor={{ fill: "#F8FAFC" }}
                       contentStyle={{ background: "#0B1120", border: "none", borderRadius: 12, color: "#fff", fontSize: 12 }}
-                      formatter={(value: number) => [`${value} negócios`, ""]}
+                      formatter={(value: number) => [`${value} negÃ³cios`, ""]}
                     />
                     <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
                       {funnelStages.map((entry, index) => (
@@ -208,7 +210,7 @@ const Dashboard = () => {
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm truncate">{c.name}</p>
-                          <p className="text-xs text-slate-500">{c.deals} negócio(s) fechado(s)</p>
+                          <p className="text-xs text-slate-500">{c.deals} negÃ³cio(s) fechado(s)</p>
                         </div>
                         <span className="font-bold text-sm text-[#7E22CE]">{formatCurrency(c.revenue)}</span>
                       </div>
@@ -318,3 +320,8 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+
+

@@ -35,6 +35,38 @@ const Settings = () => {
   const [phone, setPhone] = useState(profile?.phone || "");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Avatar
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error("Imagem muito grande. Maximo 2MB."); return; }
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const fileName = `${profile!.id}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
+      const url = data.publicUrl + "?t=" + Date.now();
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: url })
+        .eq("id", profile!.id);
+      if (updateError) throw updateError;
+      setAvatarUrl(url);
+      toast.success("Foto atualizada com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao enviar foto");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   // Senha
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -157,8 +189,22 @@ const Settings = () => {
                   </h2>
 
                   <div className="flex items-center gap-4 pb-4 border-b border-border">
-                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center text-2xl font-bold text-[#7E22CE]">
-                      {(profile?.full_name || "?")[0].toUpperCase()}
+                    <div className="relative group">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-purple-100" />
+                      ) : (
+                        <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center text-2xl font-bold text-[#7E22CE]">
+                          {(profile?.full_name || "?")[0].toUpperCase()}
+                        </div>
+                      )}
+                      <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        {uploadingAvatar ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Camera className="w-5 h-5 text-white" />
+                        )}
+                        <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                      </label>
                     </div>
                     <div>
                       <p className="font-medium">{profile?.full_name || "-"}</p>
@@ -166,6 +212,7 @@ const Settings = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {profile?.company_id ? "Vinculado a uma imobiliaria" : "Corretor independente"}
                       </p>
+                      <p className="text-xs text-slate-400 mt-1">Passe o mouse sobre a foto para alterar</p>
                     </div>
                   </div>
 

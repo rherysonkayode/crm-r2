@@ -88,26 +88,26 @@ const Dashboard = () => {
     <AppLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
 
-        {/* Aviso de trial â€” aparece UMA vez */}
+        {/* Aviso de trial */}
         {profile?.subscription_status === "trial" && profile.trial_end && (
           <Alert className="bg-blue-50 border-blue-200">
             <Clock className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-700">
-              â³ Seu perÃ­odo de teste termina em{" "}
+              Seu periodo de teste termina em{" "}
               {(() => { const d = Math.max(0, differenceInDays(new Date(profile.trial_end), new Date())); return `${d} ${d === 1 ? "dia" : "dias"}`; })()}.
               Aproveite para explorar todas as funcionalidades!
             </AlertDescription>
           </Alert>
         )}
 
-        {/* CabeÃ§alho */}
+        {/* Cabecalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Dashboard</h1>
             <p className="text-sm sm:text-base text-slate-500 font-medium">
               {isCorretor
-                ? `OlÃ¡, ${profile?.full_name?.split(" ")[0] || "Corretor"}! Aqui estÃ£o suas mÃ©tricas.`
-                : "VisÃ£o geral da sua imobiliÃ¡ria"}
+                ? `Ola, ${profile?.full_name?.split(" ")[0] || "Corretor"}! Aqui estao suas metricas.`
+                : "Visao geral da sua imobiliaria"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -120,23 +120,23 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Cards de mÃ©tricas */}
+        {/* Cards de metricas */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 sm:h-32 rounded-2xl" />)
           ) : isCorretor ? (
             <>
-              <StatCard title="Meus Leads"    value={meusLeads.length}            icon={Users}     accentColor="primary"  />
-              <StatCard title="Leads Ativos"  value={meusLeadsAtivos}             icon={TrendingUp} accentColor="info"    />
-              <StatCard title="Convertidos"   value={meusLeadsConvertidos}        icon={Handshake}  accentColor="success" />
-              <StatCard title="Minha Receita" value={formatCurrency(minhaReceita)} icon={DollarSign} accentColor="warning" />
+              <StatCard title="Meus Leads"    value={meusLeads.length}             icon={Users}      accentColor="primary"  />
+              <StatCard title="Leads Ativos"  value={meusLeadsAtivos}              icon={TrendingUp}  accentColor="info"    />
+              <StatCard title="Convertidos"   value={meusLeadsConvertidos}         icon={Handshake}   accentColor="success" />
+              <StatCard title="Minha Receita" value={formatCurrency(minhaReceita)} icon={DollarSign}  accentColor="warning" />
             </>
           ) : (
             <>
-              <StatCard title="Total de Leads"      value={totalLeads}                  icon={Users}     accentColor="primary"  />
-              <StatCard title="ImÃ³veis"             value={totalProperties}             icon={Building2} accentColor="info"     />
-              <StatCard title="NegÃ³cios Fechados"   value={closedDeals}                 icon={Handshake} accentColor="success"  />
-              <StatCard title="Receita Total"       value={formatCurrency(totalRevenue)} icon={DollarSign} accentColor="warning" />
+              <StatCard title="Total de Leads"    value={totalLeads}                   icon={Users}      accentColor="primary"  />
+              <StatCard title="Imoveis"           value={totalProperties}              icon={Building2}  accentColor="info"     />
+              <StatCard title="Negocios Fechados" value={closedDeals}                  icon={Handshake}  accentColor="success"  />
+              <StatCard title="Receita Total"     value={formatCurrency(totalRevenue)} icon={DollarSign} accentColor="warning"  />
             </>
           )}
         </div>
@@ -152,22 +152,22 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <Skeleton className="h-[240px] w-full rounded-xl" />
+                <Skeleton className="h-[280px] w-full rounded-xl" />
               ) : (
-                <ResponsiveContainer width="100%" height={240}>
+                <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={funnelStages} layout="vertical" margin={{ left: 10, right: 20 }}>
                     <XAxis type="number" hide />
                     <YAxis
                       type="category" dataKey="name"
                       tick={{ fontSize: 13, fill: "#64748B", fontWeight: 500 }}
-                      width={70} axisLine={false} tickLine={false}
+                      width={80} axisLine={false} tickLine={false}
                     />
                     <Tooltip
                       cursor={{ fill: "#F8FAFC" }}
                       contentStyle={{ background: "#0B1120", border: "none", borderRadius: 12, color: "#fff", fontSize: 12 }}
-                      formatter={(value: number) => [`${value} negÃ³cios`, ""]}
+                      formatter={(value: number) => [`${value} negocios`, ""]}
                     />
-                    <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
+                    <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={26}>
                       {funnelStages.map((entry, index) => (
                         <Cell key={index} fill={entry.color} />
                       ))}
@@ -210,7 +210,7 @@ const Dashboard = () => {
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm truncate">{c.name}</p>
-                          <p className="text-xs text-slate-500">{c.deals} negÃ³cio(s) fechado(s)</p>
+                          <p className="text-xs text-slate-500">{c.deals} negocio(s) fechado(s)</p>
                         </div>
                         <span className="font-bold text-sm text-[#7E22CE]">{formatCurrency(c.revenue)}</span>
                       </div>
@@ -320,8 +320,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
-
-
-

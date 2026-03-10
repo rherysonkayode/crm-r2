@@ -67,6 +67,24 @@ const Settings = () => {
     }
   };
 
+  const handleDeleteAvatar = async () => {
+    if (!avatarUrl) return;
+    setUploadingAvatar(true);
+    try {
+      const ext = avatarUrl.split(".").pop()?.split("?")[0];
+      const fileName = `${profile!.id}.${ext}`;
+      await supabase.storage.from("avatars").remove([fileName]);
+      const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", profile!.id);
+      if (error) throw error;
+      setAvatarUrl("");
+      toast.success("Foto removida com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover foto");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   // Senha
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -213,6 +231,11 @@ const Settings = () => {
                         {profile?.company_id ? "Vinculado a uma imobiliaria" : "Corretor independente"}
                       </p>
                       <p className="text-xs text-slate-400 mt-1">Passe o mouse sobre a foto para alterar</p>
+                      {avatarUrl && (
+                        <button onClick={handleDeleteAvatar} disabled={uploadingAvatar} className="text-xs text-red-400 hover:text-red-600 transition-colors mt-1">
+                          Remover foto
+                        </button>
+                      )}
                     </div>
                   </div>
 

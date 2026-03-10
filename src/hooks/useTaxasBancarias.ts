@@ -25,7 +25,7 @@ export interface BancoConfig {
 }
 
 export const useTaxasBancarias = () => {
-  // Taxas atualizadas com base em CrediMorar + simuladores oficiais (marco/2025)
+  // Taxas atualizadas com base em CrediMorar + simuladores oficiais (mar/2026)
   // tag, mip, dfi: fontes CrediMorar e site Bradesco
   // Para atualizar via API futura: substituir este array por query ao Supabase
   const bancos: BancoConfig[] = [
@@ -37,16 +37,21 @@ export const useTaxasBancarias = () => {
       corTexto: "#FFFFFF",
       maxPrazo: 420,
       minImovel: 80000,
-      tag: 1200.00,      // estimativa CEF (varia por regiao)
-      mipAnual: 0.037,   // % ao ano sobre saldo devedor
-      dfiAnual: 0.00825, // % ao ano sobre valor do imovel
+      tag: 1200.00,      // estimativa CEF (varia por regiao - confirmar)
+      mipAnual: 0.037,
+      dfiAnual: 0.00825,
       maxFinancingPercent: {
-        residencial: { novo: 90, usado: 80 },
+        // SBPE: 80% SAC / 70% PRICE | MCMV Classe Media: 80% novo / 60% usado
+        // fonte: simulador oficial Caixa (mar/2026)
+        residencial: { novo: 80, usado: 80 },
         comercial: { novo: 70, usado: 60 },
         rural: { novo: 70, usado: 60 },
       },
       taxas: {
-        residencial: { price: 11.19, sac: 11.19 },
+        // SBPE: 11.49% a.a. | MCMV Classe Media: 10.47% a.a.
+        // usando SBPE como padrao (linha mais comum); MCMV tratado como modalidade separada futuramente
+        // fonte: simulador oficial Caixa (mar/2026)
+        residencial: { price: 11.49, sac: 11.49 },
         comercial: { price: 12.0, sac: 12.0 },
         rural: { price: 11.5, sac: 11.5 },
       },
@@ -59,16 +64,22 @@ export const useTaxasBancarias = () => {
       corTexto: "#FFCC00",
       maxPrazo: 420,
       minImovel: 80000,
-      tag: 1500.00,
+      tag: 1500.00,      // a confirmar - BB cobra tarifa de administracao mensal tb
       mipAnual: 0.038,
       dfiAnual: 0.00825,
       maxFinancingPercent: {
-        residencial: { novo: 80, usado: 80 },
-        comercial: { novo: 70, usado: 60 },
-        rural: { novo: 70, usado: 60 },
+        // BB: entrada minima historicamente maior (ate 50% em alguns casos)
+        // usando 70% como conservador ate confirmar
+        // fonte: informacoes publicas BB (jan/fev 2026)
+        residencial: { novo: 70, usado: 70 },
+        comercial: { novo: 60, usado: 60 },
+        rural: { novo: 60, usado: 60 },
       },
       taxas: {
-        residencial: { price: 11.8, sac: 11.8 },
+        // taxa base: 12.00% a.a. + TR | Procotista: a partir de 9.00% a.a.
+        // usando taxa base balcao como padrao
+        // fonte: informacoes publicas BB (jan/fev 2026)
+        residencial: { price: 12.00, sac: 12.00 },
         comercial: { price: 12.5, sac: 12.5 },
         rural: { price: 12.0, sac: 12.0 },
       },
@@ -80,18 +91,25 @@ export const useTaxasBancarias = () => {
       cor: "#EC7000",
       corTexto: "#FFFFFF",
       maxPrazo: 420,
-      minImovel: 97561,   // fonte: CrediMorar
-      tag: 1950.00,       // fonte: CrediMorar response
+      minImovel: 97561,
+      // TAG corrigida: R$850 (avaliacao do imovel) - fonte: site oficial Itau (fev/2026)
+      // anterior era R$1950 (incorreto - era valor de outro banco)
+      tag: 850.00,
       mipAnual: 0.038,
       dfiAnual: 0.00825,
       maxFinancingPercent: {
-        residencial: { novo: 90, usado: 90 }, // Itau financia ate 90% - fonte CrediMorar
+        // Itau financia ate 90% residencial - fonte: site oficial + CrediMorar
+        residencial: { novo: 90, usado: 90 },
+        // comercial: ate 20 anos (240 meses) - fonte: site oficial Itau
         comercial: { novo: 70, usado: 60 },
         rural: { novo: 70, usado: 60 },
       },
       taxas: {
-        // fonte: CrediMorar (TaxaEfetivaResidencial = 11.99%)
-        residencial: { price: 11.99, sac: 11.39 },
+        // taxa minima: 11.60% a.a. + TR (clientes Private/Personnalite)
+        // taxa Uniclass/Agencia: 12.05% a 13.45% a.a. + TR
+        // usando minima como referencia (fev/2026)
+        // fonte: site oficial Itau (fev/2026)
+        residencial: { price: 11.99, sac: 11.60 },
         comercial: { price: 12.2, sac: 12.2 },
         rural: { price: 11.9, sac: 11.9 },
       },
@@ -103,13 +121,15 @@ export const useTaxasBancarias = () => {
       cor: "#CC3333",
       corTexto: "#FFFFFF",
       maxPrazo: 420,
-      minImovel: 100000,  // fonte: CrediMorar
-      tag: 1950.00,       // fonte: CrediMorar response
+      minImovel: 100000,
+      tag: 1950.00,      // fonte: CrediMorar response
       mipAnual: 0.036,
       dfiAnual: 0.00825,
       maxFinancingPercent: {
+        // residencial: ate 80% em 35 anos | comercial: ate 70% em 30 anos
+        // fonte: site oficial Santander
         residencial: { novo: 80, usado: 80 },
-        comercial: { novo: 70, usado: 60 },
+        comercial: { novo: 70, usado: 70 },
         rural: { novo: 70, usado: 60 },
       },
       taxas: {
@@ -126,12 +146,12 @@ export const useTaxasBancarias = () => {
       cor: "#660099",
       corTexto: "#FFFFFF",
       maxPrazo: 420,
-      minImovel: 100000,  // fonte: CrediMorar
-      tag: 2114.03,       // fonte: CrediMorar response + site Bradesco
+      minImovel: 100000,
+      tag: 2114.03,      // fonte: CrediMorar response + site Bradesco
       mipAnual: 0.037,
       dfiAnual: 0.00825,
       maxFinancingPercent: {
-        residencial: { novo: 80, usado: 80 }, // corrigido: CrediMorar mostra 80%
+        residencial: { novo: 80, usado: 80 },
         comercial: { novo: 60, usado: 60 },
         rural: { novo: 60, usado: 60 },
       },
@@ -150,18 +170,21 @@ export const useTaxasBancarias = () => {
       cor: "#FF7A00",
       corTexto: "#FFFFFF",
       maxPrazo: 420,
-      minImovel: 200000,  // fonte: CrediMorar
-      tag: 5000.00,       // fonte: CrediMorar response
+      minImovel: 200000,
+      tag: 5000.00,      // fonte: CrediMorar response
       mipAnual: 0.038,
       dfiAnual: 0.00825,
       maxFinancingPercent: {
-        residencial: { novo: 75, usado: 75 }, // fonte: CrediMorar (maxLtv = 0.75)
+        residencial: { novo: 75, usado: 75 },
         comercial: { novo: 70, usado: 60 },
         rural: { novo: 70, usado: 60 },
       },
       taxas: {
-        // fonte: CrediMorar (TaxaEfetivaResidencial = 9.5%, TaxaJurosUtilizada = 9.11%)
-        residencial: { price: 9.50, sac: 9.11 },
+        // ATENCAO: Inter usa taxa + IPCA (pos-fixado), nao + TR como os demais
+        // Taxa: 9.50% a.a. + IPCA | CET: 10.63% a.a. | CESH: 3.46%
+        // fonte: simulador oficial Inter (mar/2026)
+        // A parcela pode oscilar conforme IPCA mensal
+        residencial: { price: 9.50, sac: 9.50 },
         comercial: { price: 12.0, sac: 12.0 },
         rural: { price: 11.8, sac: 11.8 },
       },

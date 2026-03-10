@@ -270,6 +270,30 @@ const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; m
                 </div>
               </div>
 
+              {/* Aviso Inter: taxa pos-fixada pelo IPCA */}
+              {banco.bancoId === "inter" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa pos-fixada:</strong> Inter cobra 9,5% a.a. + <strong>IPCA</strong>. A parcela pode variar mensalmente conforme a inflacao. Os demais bancos usam TR.</span>
+                </div>
+              )}
+
+              {/* Aviso Caixa: SBPE vs MCMV */}
+              {banco.bancoId === "caixa" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Simulacao SBPE (11,49% a.a.).</strong> MCMV Classe Media: 10,47% a.a. para imovel novo (LTV 80%) ou 60% para usado. Confirme a modalidade na agencia.</span>
+                </div>
+              )}
+
+              {/* Aviso BB: tarifa mensal + Procotista */}
+              {banco.bancoId === "bb" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>BB cobra tarifa de administracao mensal</strong> alem das parcelas. Pró-Cotista FGTS: taxas a partir de 9% a.a. Taxa base exibida: 12% a.a. + TR.</span>
+                </div>
+              )}
+
               {!sim.rendaSuficiente && (
                 <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 bg-amber-50 p-1 rounded">
                   <AlertCircle className="w-3 h-3" />
@@ -440,7 +464,12 @@ const FinanciamentoCalc = () => {
       // Validacao: valor minimo do imovel aceito por este banco
       if (valor < banco.minImovel) continue;
 
-      const prazoEfetivo = Math.min(prazoSolicitado, banco.maxPrazo, prazoMaxUser);
+      // Prazo maximo por banco/tipo: Itau comercial = 240m | Santander comercial = 360m
+      const maxPrazoBancoTipo =
+        banco.id === "itau" && tipoImovel === "comercial" ? 240 :
+        banco.id === "santander" && tipoImovel === "comercial" ? 360 :
+        banco.maxPrazo;
+      const prazoEfetivo = Math.min(prazoSolicitado, maxPrazoBancoTipo, prazoMaxUser);
       if (prazoEfetivo <= 0) continue;
 
       const sistemas: Array<"price" | "sac"> = sistema === "ambos" ? ["price", "sac"] : [sistema as "price" | "sac"];

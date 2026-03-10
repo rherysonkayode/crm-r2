@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useLeads, useProfiles } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +33,7 @@ const statusOptions = [
   { value: "perdido", label: "Perdido" },
 ];
 
-const sourceOptions = ["Site", "Indicação", "Portal", "Redes Sociais", "Telefone", "Outro"];
+const sourceOptions = ["Site", "IndicaÃ§Ã£o", "Portal", "Redes Sociais", "Telefone", "Outro"];
 
 const statusColors: Record<string, string> = {
   novo: "bg-blue-100 text-blue-700",
@@ -115,9 +115,10 @@ const Leads = () => {
 
   const handleSave = async () => {
     if (!profile || !form.name.trim()) { toast.error("Informe o nome do lead"); return; }
-    if (form.email && !isValidEmail(form.email)) { toast.error("Por favor, insira um e-mail válido"); return; }
+    if (form.email && !isValidEmail(form.email)) { toast.error("Por favor, insira um e-mail vÃ¡lido"); return; }
+   const { cpf: _cpf, ...formWithoutCpf } = form;
     const payload = {
-      ...form,
+        ...formWithoutCpf,
       company_id: profile.company_id ?? null,
       assigned_to: isCorretor ? profile.id : (form.assigned_to || null),
     };
@@ -138,13 +139,13 @@ const Leads = () => {
     if (!deleteLeadId) return;
     const { error } = await supabase.from("leads").delete().eq("id", deleteLeadId);
     if (error) { toast.error("Erro ao excluir"); return; }
-    toast.success("Lead excluído com sucesso!");
+    toast.success("Lead excluÃ­do com sucesso!");
     queryClient.invalidateQueries({ queryKey: ["leads"] });
     setDeleteLeadId(null);
   };
 
   const openEdit = (lead: any) => {
-    if (isCorretor && lead.assigned_to !== profile?.id) { toast.error("Você só pode editar seus próprios leads."); return; }
+    if (isCorretor && lead.assigned_to !== profile?.id) { toast.error("VocÃª sÃ³ pode editar seus prÃ³prios leads."); return; }
     setForm({
       name: lead.name,
       phone: lead.phone || "",
@@ -288,7 +289,7 @@ const Leads = () => {
           <div>
             <h1 className="text-2xl font-bold">Leads</h1>
             <p className="text-muted-foreground">
-              {isCorretor ? "Seus contatos e oportunidades" : "Todos os leads da imobiliária"}
+              {isCorretor ? "Seus contatos e oportunidades" : "Todos os leads da imobiliÃ¡ria"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -421,8 +422,8 @@ const Leads = () => {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label>Observações</Label>
-                    <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anotações sobre o lead..." />
+                    <Label>ObservaÃ§Ãµes</Label>
+                    <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="AnotaÃ§Ãµes sobre o lead..." />
                   </div>
                   <Button onClick={handleSave} className="bg-[#7E22CE] hover:bg-[#6b21a8]">{editingLead ? "Salvar" : "Criar Lead"}</Button>
                 </div>
@@ -502,7 +503,7 @@ const Leads = () => {
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Origem</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Status</th>
                     {isImobiliaria && <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Corretor</th>}
-                    <th className="text-right p-3 text-xs font-semibold text-muted-foreground uppercase">Ações</th>
+                    <th className="text-right p-3 text-xs font-semibold text-muted-foreground uppercase">AÃ§Ãµes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -528,7 +529,7 @@ const Leads = () => {
                           <td className="p-3 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1.5">
                               <User className="w-3.5 h-3.5" />
-                              {responsavel?.full_name || "Não atribuído"}
+                              {responsavel?.full_name || "NÃ£o atribuÃ­do"}
                             </div>
                           </td>
                         )}
@@ -562,7 +563,7 @@ const Leads = () => {
               <div className="flex flex-col items-center justify-center py-20 bg-card border border-dashed border-border rounded-xl text-center">
                 <Columns className="w-12 h-12 text-muted-foreground/30 mb-4" />
                 <p className="font-semibold text-slate-700 mb-1">Nenhuma coluna criada</p>
-                <p className="text-sm text-muted-foreground mb-4">Clique no ícone de configurações para criar suas colunas</p>
+                <p className="text-sm text-muted-foreground mb-4">Clique no Ã­cone de configuraÃ§Ãµes para criar suas colunas</p>
                 <Button variant="outline" onClick={() => setColDialogOpen(true)}>
                   <Settings2 className="w-4 h-4 mr-2" />Criar primeira coluna
                 </Button>
@@ -628,7 +629,7 @@ const Leads = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Excluir Lead Permanentemente</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir este contato? Esta ação não poderá ser desfeita e todo o histórico deste lead será perdido.
+                Tem certeza que deseja excluir este contato? Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita e todo o histÃ³rico deste lead serÃ¡ perdido.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

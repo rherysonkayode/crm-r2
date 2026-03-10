@@ -259,7 +259,8 @@ const Funnel = () => {
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fechados</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalFechado)}</p>
+            <p className="text-3xl font-bold text-green-600">{deals?.filter(d => d.stage === "fechado").length ?? 0}</p>
+            {totalFechado > 0 && <p className="text-xs text-muted-foreground mt-1">{formatCurrency(totalFechado)}</p>}
           </div>
         </div>
 

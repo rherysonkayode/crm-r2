@@ -274,15 +274,19 @@ const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; m
               {banco.bancoId === "inter" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Taxa pos-fixada:</strong> Inter cobra 9,5% a.a. + <strong>IPCA</strong>. A parcela pode variar mensalmente conforme a inflacao. Os demais bancos usam TR.</span>
+                  <span><strong>Taxa pos-fixada (IPCA):</strong> a partir de 8,20% a 9,50% a.a. + IPCA. A parcela varia mensalmente conforme a inflacao. Linha TR disponivel: 13,76% a.a.</span>
                 </div>
               )}
 
-              {/* Aviso Caixa: SBPE vs MCMV */}
+              {/* Aviso Caixa: SBPE vs MCMV 4 faixas + PRICE LTV */}
               {banco.bancoId === "caixa" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Simulacao SBPE (11,49% a.a.).</strong> MCMV Classe Media: 10,47% a.a. para imovel novo (LTV 80%) ou 60% para usado. Confirme a modalidade na agencia.</span>
+                  <span>
+                    <strong>SBPE balcao: 11,49% a.a.</strong> Com relacionamento/conta salario: a partir de 10,26%. Pro-Cotista: 8,00–9,01% a.a.{" "}
+                    <strong>MCMV:</strong> Faixa 1–2 (renda ate R$4.700, imovel ate R$270k) · Faixa 3 (ate R$8.600, imovel ate R$350k) · Faixa 4 — Classe Media (renda ate R$12k, imovel ate R$500k): 10,47% a.a.{" "}
+                    {sim.sistema === "price" && <strong className="text-amber-700">⚠ PRICE: LTV maximo 50% neste banco.</strong>}
+                  </span>
                 </div>
               )}
 
@@ -290,7 +294,43 @@ const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; m
               {banco.bancoId === "bb" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>BB cobra tarifa de administracao mensal</strong> alem das parcelas. Pró-Cotista FGTS: taxas a partir de 9% a.a. Taxa base exibida: 12% a.a. + TR.</span>
+                  <span><strong>BB cobra tarifa de administracao mensal</strong> alem das parcelas. Procotista FGTS: a partir de 9% a.a. Taxa base balcao exibida: 12% a.a. + TR.</span>
+                </div>
+              )}
+
+              {/* Aviso Itau: taxa balcao vs relacionamento */}
+              {banco.bancoId === "itau" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa balcao: 12,19% a.a.</strong> Com relacionamento (Varejo/Uniclass/Personnalite): a partir de 11,60%. Opcao Poupanca: 8,32% + rendimento poupanca.</span>
+                </div>
+              )}
+
+              {/* Aviso Santander: taxa balcao vs relacionamento */}
+              {banco.bancoId === "santander" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa balcao: 13,19% a.a.</strong> Com relacionamento (Van Gogh/Select): 11,69% a 11,79% a.a. + TR.</span>
+                </div>
+              )}
+
+              {/* Aviso Bradesco: taxa balcao + limite renda PRICE */}
+              {banco.bancoId === "bradesco" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Taxa balcao: 12,79% a.a.</strong> Com relacionamento (Exclusive/Prime): 11,99%. Opcao Poupanca: 5,83% + poupanca.{" "}
+                    {sim.sistema === "price" && <strong className="text-amber-700">⚠ PRICE: comprometimento de renda limitado a 15% (vs 30% no SAC).</strong>}
+                    {sim.sistema === "sac" && " SAC: comprometimento de renda ate 30%."}
+                  </span>
+                </div>
+              )}
+
+              {/* Aviso SFH: taxa acima do teto legal = SFI, sem FGTS */}
+              {sim.taxaAnual > 12.0 && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa acima de 12% a.a. (teto SFH):</strong> Esta operacao sai do SFH e entra no SFI. O uso do FGTS nao e permitido nesta linha. Teto SFH: imoveis ate R$ 2.250.000.</span>
                 </div>
               )}
 
@@ -351,6 +391,7 @@ const FinanciamentoCalc = () => {
   const [prazoMaximoAviso, setPrazoMaximoAviso] = useState("");
   const [entradaMinimaInfo, setEntradaMinimaInfo] = useState<string>("");
   const [rendaMinimaInfo, setRendaMinimaInfo] = useState<string>("");
+  const [temFgts, setTemFgts] = useState<boolean | null>(null);
   const [nenhumaSimulacaoMsg, setNenhumaSimulacaoMsg] = useState<string | null>(null);
 
   const toggleBanco = (id: string) => setBancosAtivos((prev) =>
@@ -374,7 +415,9 @@ const FinanciamentoCalc = () => {
     if (valor > 0 && bancosAtivos.length > 0) {
       let entradaMin = 0;
       bancos.filter(b => bancosAtivos.includes(b.id)).forEach(banco => {
-        const percentMax = banco.maxFinancingPercent[tipoImovel][tipoUso];
+        const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+        // Usa SAC como referencia (mais favoravel) para exibir entrada minima informativa
+        const percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
         const min = valor * (1 - percentMax / 100);
         if (min > entradaMin) entradaMin = min;
       });
@@ -431,7 +474,9 @@ const FinanciamentoCalc = () => {
 
     let entradaMinimaNecessaria = 0;
     for (const banco of bancos.filter(b => bancosAtivos.includes(b.id))) {
-      const percentMax = banco.maxFinancingPercent[tipoImovel][tipoUso];
+      const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+      // Para validacao, usa SAC (mais favoravel) como referencia
+      const percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
       const entradaMin = valor * (1 - percentMax / 100);
       if (entradaMin > entradaMinimaNecessaria) entradaMinimaNecessaria = entradaMin;
     }
@@ -511,7 +556,10 @@ const FinanciamentoCalc = () => {
 
         if (financiadoCalc <= 0) continue;
 
-        const percentMax = banco.maxFinancingPercent[tipoImovel][tipoUso];
+        // LTV por sistema de amortizacao (SAC vs PRICE)
+        // Ex: Caixa SAC=80%, PRICE=50% | demais bancos iguais para ambos
+        const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+        const percentMax: number = (typeof ltv[sis] === "number") ? ltv[sis] : 80;
         const entradaMinBanco = valor * (1 - percentMax / 100);
         if (entradaEfetiva < entradaMinBanco - 0.01) continue;
 
@@ -659,6 +707,7 @@ const FinanciamentoCalc = () => {
               </button>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground">No SBPE, novo e usado tem a mesma taxa. A diferenca e no MCMV (subsidiado).</p>
         </div>
       </div>
 
@@ -751,6 +800,28 @@ const FinanciamentoCalc = () => {
           <Input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} max={new Date().toISOString().split("T")[0]} />
           <p className="text-xs text-muted-foreground">Valida o limite de idade de 80 anos e 6m</p>
         </div>
+        <div className="space-y-2 col-span-2 md:col-span-1">
+          <Label className="flex items-center gap-1.5 text-sm font-medium">Possui 3+ anos de FGTS?</Label>
+          <div className="flex gap-2">
+            {([{ v: true, label: "Sim" }, { v: false, label: "Nao" }] as const).map(({ v, label }) => (
+              <button key={label} type="button"
+                onClick={() => setTemFgts(v)}
+                className={cn("flex-1 py-2 rounded-lg border text-xs font-medium transition-all",
+                  temFgts === v
+                    ? "border-purple-600 bg-purple-50 text-purple-700"
+                    : "border-slate-200 text-slate-500 hover:border-slate-300"
+                )}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {temFgts === true && (
+            <p className="text-xs text-green-600 font-medium">✓ FGTS disponivel: entrada, amortizacao (a cada 2 anos) ou ate 80% das parcelas por 12 meses.</p>
+          )}
+          {temFgts === false && (
+            <p className="text-xs text-slate-400">Sem FGTS disponivel. Financiamento via recursos proprios ou SBPE.</p>
+          )}
+        </div>
       </div>
 
       {entradaMinimaInfo && (
@@ -831,6 +902,40 @@ const FinanciamentoCalc = () => {
           <p className="text-sm text-muted-foreground">
             {results.reduce((acc, b) => acc + b.simulacoes.length, 0)} simulacoes · ordenadas por banco
           </p>
+
+          {/* Badge FGTS + aviso SFH */}
+          {temFgts === true && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-green-600 shrink-0" />
+                <p className="text-xs font-bold text-green-800 uppercase tracking-wide">FGTS disponivel — 3 formas de uso</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-green-800">
+                <div className="bg-white rounded-lg p-2.5 border border-green-100">
+                  <p className="font-semibold mb-0.5">📥 Entrada</p>
+                  <p className="text-green-700">Compoe ou paga integralmente o valor de entrada na compra</p>
+                </div>
+                <div className="bg-white rounded-lg p-2.5 border border-green-100">
+                  <p className="font-semibold mb-0.5">📉 Amortizacao</p>
+                  <p className="text-green-700">Abate o saldo devedor a cada 2 anos — reduz parcela ou prazo</p>
+                </div>
+                <div className="bg-white rounded-lg p-2.5 border border-green-100">
+                  <p className="font-semibold mb-0.5">🔄 Parcelas</p>
+                  <p className="text-green-700">Ate 80% da parcela mensal por ate 12 meses seguidos</p>
+                </div>
+              </div>
+              <p className="text-xs text-green-700">Valido em <strong>qualquer banco</strong> abaixo (e lei federal). Imovel deve se enquadrar no SFH: residencial urbano, valor ate R$ 2.250.000, sem outro financiamento ativo no SFH.</p>
+            </div>
+          )}
+          {temFgts === false && (
+            <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <Info className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+              <div className="text-xs text-slate-600">
+                <p className="font-medium">Financiamento via SBPE (sem FGTS)</p>
+                <p className="text-slate-400 mt-0.5">Para usar o FGTS e necessario ter no minimo 3 anos de contribuicao acumulada (consecutivos ou nao).</p>
+              </div>
+            </div>
+          )}
           <div className="space-y-3">
             {results.map((banco) => (
               <BancoResultCard key={banco.bancoId} banco={banco} melhorSimulacaoId={melhorSimulacaoId} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useDeals, useLeads, useProperties } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,7 +45,7 @@ const Funnel = () => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingDrop, setPendingDrop] = useState<{ dealId: string; newStage: string } | null>(null);
 
-  // Estado para o modal de exclusão bonito
+  // Estado para o modal de exclusÃ£o bonito
   const [deleteDealId, setDeleteDealId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -57,7 +57,7 @@ const Funnel = () => {
   const handleCreate = async () => {
     if (!profile) return;
     if (!form.title.trim() && !form.lead_id) {
-      toast.error("Informe um título ou selecione um lead");
+      toast.error("Informe um tÃ­tulo ou selecione um lead");
       return;
     }
 
@@ -83,8 +83,8 @@ const Funnel = () => {
     );
 
     const result = await response.json();
-    if (!result.success) { toast.error("Erro ao criar negócio: " + result.error); return; }
-    toast.success("Negócio criado com sucesso!");
+    if (!result.success) { toast.error("Erro ao criar negÃ³cio: " + result.error); return; }
+    toast.success("NegÃ³cio criado com sucesso!");
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDialogOpen(false);
     resetForm();
@@ -94,7 +94,7 @@ const Funnel = () => {
     if (!deleteDealId) return;
     const { error } = await supabase.from("deals").delete().eq("id", deleteDealId);
     if (error) { toast.error("Erro ao excluir"); return; }
-    toast.success("Negócio excluído!");
+    toast.success("NegÃ³cio excluÃ­do!");
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDeleteDealId(null);
   };
@@ -123,7 +123,7 @@ const Funnel = () => {
     );
 
     const result = await response.json();
-    if (!result.success) { toast.error("Erro ao mover negócio: " + result.error); return; }
+    if (!result.success) { toast.error("Erro ao mover negÃ³cio: " + result.error); return; }
     queryClient.invalidateQueries({ queryKey: ["deals"] });
     setDraggedDeal(null);
     setPendingDrop(null);
@@ -148,7 +148,7 @@ const Funnel = () => {
   const totalFechado = deals?.filter(d => d.stage === "fechado").reduce((sum, d) => sum + (Number(d.value) || 0), 0) ?? 0;
   const totalNegocios = deals?.length ?? 0;
 
-  const getDealLabel = (deal: any) => deal.title || deal.leads?.name || "Negócio";
+  const getDealLabel = (deal: any) => deal.title || deal.leads?.name || "NegÃ³cio";
   const getDealSub = (deal: any) => deal.properties?.title || null;
 
   return (
@@ -158,16 +158,16 @@ const Funnel = () => {
           <div>
             <h1 className="text-2xl font-bold">Funil de Vendas</h1>
             <p className="text-muted-foreground">
-              {isCorretor ? "Seus negócios em andamento" : "Pipeline de negócios da equipe"}
+              {isCorretor ? "Seus negÃ³cios em andamento" : "Pipeline de negÃ³cios da equipe"}
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo Negócio</Button>
+              <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo NegÃ³cio</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Novo Negócio</DialogTitle>
+                <DialogTitle>Novo NegÃ³cio</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
@@ -183,16 +183,16 @@ const Funnel = () => {
 
                 {!form.lead_id && (
                   <div className="space-y-2">
-                    <Label>Título do negócio *</Label>
+                    <Label>TÃ­tulo do negÃ³cio *</Label>
                     <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Venda Apto Centro" />
-                    <p className="text-xs text-muted-foreground">Obrigatório quando não há lead selecionado</p>
+                    <p className="text-xs text-muted-foreground">ObrigatÃ³rio quando nÃ£o hÃ¡ lead selecionado</p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label>Imóvel <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Label>ImÃ³vel <span className="text-muted-foreground font-normal">(opcional)</span></Label>
                   <Select value={form.property_id} onValueChange={(v) => setForm({ ...form, property_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione um imóvel" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Selecione um imÃ³vel" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Nenhum</SelectItem>
                       {properties?.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
@@ -216,7 +216,7 @@ const Funnel = () => {
                   </div>
                 </div>
 
-                <Button onClick={handleCreate} className="bg-[#7E22CE] hover:bg-[#6b21a8]">Criar Negócio</Button>
+                <Button onClick={handleCreate} className="bg-[#7E22CE] hover:bg-[#6b21a8]">Criar NegÃ³cio</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -224,7 +224,7 @@ const Funnel = () => {
 
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de Negócios</p>
+            <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de NegÃ³cios</p>
             <p className="text-3xl font-bold">{totalNegocios}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
@@ -319,7 +319,7 @@ const Funnel = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar venda</AlertDialogTitle>
               <AlertDialogDescription>
-                Ao mover este negócio para "Fechado", o imóvel associado será marcado como "Vendido". Esta ação não poderá ser desfeita automaticamente.
+                Ao mover este negÃ³cio para "Fechado", o imÃ³vel associado serÃ¡ marcado como "Vendido". Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita automaticamente.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -334,13 +334,13 @@ const Funnel = () => {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Modal de Exclusão de Negócio */}
+        {/* Modal de ExclusÃ£o de NegÃ³cio */}
         <AlertDialog open={!!deleteDealId} onOpenChange={(isOpen) => !isOpen && setDeleteDealId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir Negócio Permanentemente</AlertDialogTitle>
+              <AlertDialogTitle>Excluir NegÃ³cio Permanentemente</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir este negócio do funil? Esta ação não poderá ser desfeita. (Nota: O Lead e o Imóvel associados NÃO serão apagados).
+                Tem certeza que deseja excluir este negÃ³cio do funil? Esta aÃ§Ã£o nÃ£o poderÃ¡ ser desfeita. (Nota: O Lead e o ImÃ³vel associados NÃƒO serÃ£o apagados).
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

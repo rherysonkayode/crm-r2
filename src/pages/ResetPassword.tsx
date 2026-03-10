@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,13 +36,13 @@ const ResetPassword = () => {
       }).then(({ error }) => {
         if (error) {
           setSessionError(true);
-          toast.error("Link inválido ou expirado.");
+          toast.error("Link invÃ¡lido ou expirado.");
         } else {
           setSessionReady(true);
         }
       });
     } else {
-      // Verifica se já tem sessão ativa (PASSWORD_RECOVERY event)
+      // Verifica se jÃ¡ tem sessÃ£o ativa (PASSWORD_RECOVERY event)
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
           setSessionReady(true);
@@ -55,21 +55,21 @@ const ResetPassword = () => {
 
   const passwordRequirements = [
     { regex: /.{8,}/, label: "Pelo menos 8 caracteres" },
-    { regex: /[A-Z]/, label: "Uma letra maiúscula" },
-    { regex: /[a-z]/, label: "Uma letra minúscula" },
-    { regex: /[0-9]/, label: "Um número" },
+    { regex: /[A-Z]/, label: "Uma letra maiÃºscula" },
+    { regex: /[a-z]/, label: "Uma letra minÃºscula" },
+    { regex: /[0-9]/, label: "Um nÃºmero" },
     { regex: /[!@#$%^&*(),.?":{}|<>]/, label: "Um caractere especial" },
   ];
   const passwordStrength = passwordRequirements.filter(req => req.regex.test(password)).length;
   const isPasswordValid = passwordStrength === passwordRequirements.length;
 
   const strengthColor = ["bg-red-400", "bg-red-400", "bg-orange-400", "bg-yellow-400", "bg-green-400", "bg-green-500"][passwordStrength];
-  const strengthLabel = ["", "Muito fraca", "Fraca", "Média", "Forte", "Muito forte"][passwordStrength];
+  const strengthLabel = ["", "Muito fraca", "Fraca", "MÃ©dia", "Forte", "Muito forte"][passwordStrength];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isPasswordValid) { toast.error("A senha não atende aos requisitos mínimos"); return; }
-    if (password !== confirmPassword) { toast.error("As senhas não coincidem"); return; }
+    if (!isPasswordValid) { toast.error("A senha nÃ£o atende aos requisitos mÃ­nimos"); return; }
+    if (password !== confirmPassword) { toast.error("As senhas nÃ£o coincidem"); return; }
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password });
@@ -109,15 +109,15 @@ const ResetPassword = () => {
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-red-500" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 mb-2">Link inválido</h1>
-            <p className="text-slate-500 text-sm mb-6">Este link expirou ou já foi utilizado. Solicite um novo link de recuperação.</p>
+            <h1 className="text-2xl font-black text-slate-900 mb-2">Link invÃ¡lido</h1>
+            <p className="text-slate-500 text-sm mb-6">Este link expirou ou jÃ¡ foi utilizado. Solicite um novo link de recuperaÃ§Ã£o.</p>
             <Button onClick={() => navigate("/forgot-password")} className="w-full py-6 bg-[#7E22CE] hover:bg-purple-700 text-white rounded-2xl font-bold">
               Solicitar novo link
             </Button>
           </motion.div>
         )}
 
-        {/* FORMULÁRIO */}
+        {/* FORMULÃRIO */}
         {sessionReady && !success && (
           <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }} className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-10">
             <div className="text-center mb-8">
@@ -133,7 +133,7 @@ const ResetPassword = () => {
                 <Label className="text-slate-700 font-medium">Nova senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pl-10 pr-10 py-6 rounded-2xl" required />
+                  <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="pl-10 pr-10 py-6 rounded-2xl" required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -149,7 +149,7 @@ const ResetPassword = () => {
                     <div className="space-y-1">
                       {passwordRequirements.map((req) => (
                         <p key={req.label} className={`text-xs flex items-center gap-1.5 ${req.regex.test(password) ? "text-green-600" : "text-slate-400"}`}>
-                          <span>{req.regex.test(password) ? "✓" : "○"}</span> {req.label}
+                          <span>{req.regex.test(password) ? "âœ“" : "â—‹"}</span> {req.label}
                         </p>
                       ))}
                     </div>
@@ -161,13 +161,13 @@ const ResetPassword = () => {
                 <Label className="text-slate-700 font-medium">Confirmar senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="pl-10 pr-10 py-6 rounded-2xl" required />
+                  <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="pl-10 pr-10 py-6 rounded-2xl" required />
                   <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {confirmPassword && password !== confirmPassword && <p className="text-xs text-red-500">As senhas não coincidem</p>}
-                {confirmPassword && password === confirmPassword && <p className="text-xs text-green-600">✓ Senhas coincidem</p>}
+                {confirmPassword && password !== confirmPassword && <p className="text-xs text-red-500">As senhas nÃ£o coincidem</p>}
+                {confirmPassword && password === confirmPassword && <p className="text-xs text-green-600">âœ“ Senhas coincidem</p>}
               </div>
 
               <Button type="submit" className="w-full py-6 bg-[#7E22CE] hover:bg-purple-700 text-white rounded-2xl font-bold text-base" disabled={loading || !isPasswordValid}>
@@ -186,7 +186,7 @@ const ResetPassword = () => {
             <h1 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Senha atualizada!</h1>
             <p className="text-slate-500 text-sm leading-relaxed mb-6">
               Sua senha foi redefinida com sucesso.<br />
-              Você será redirecionado para o login.
+              VocÃª serÃ¡ redirecionado para o login.
             </p>
             <Button onClick={() => navigate("/auth")} className="w-full py-6 bg-[#7E22CE] hover:bg-purple-700 text-white rounded-2xl font-bold">
               Ir para o login <ArrowRight className="w-4 h-4 ml-2" />
@@ -197,10 +197,11 @@ const ResetPassword = () => {
       </AnimatePresence>
 
       <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-8 text-xs text-slate-400">
-        © {new Date().getFullYear()} R2 Tech · Todos os direitos reservados
+        Â© {new Date().getFullYear()} R2 Tech Â· Todos os direitos reservados
       </motion.p>
     </div>
   );
 };
 
 export default ResetPassword;
+

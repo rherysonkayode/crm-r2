@@ -132,40 +132,39 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
     );
   };
 
-  const salvar = async () => {
-    setSalvando(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // CORREÇÃO: Multiplicar valores por 100 para enviar como percentuais
-      // O erro acontece porque o banco espera percentuais (ex: 12.79) mas o payload está enviando decimais (0.1279)
-      const rows = editados.map((b) => {
-        const row = bancoConfigToRow(b, user?.id);
-        
-        // Garantir que todos os valores percentuais sejam números e não sejam divididos por 100
-        // (a função bancoConfigToRow já faz isso corretamente, mas vamos verificar)
-        return row;
-      });
-
-      console.log("Enviando rows:", rows);
-
-      const { error } = await supabase
-        .from("taxas_bancarias")
-        .upsert(rows, { onConflict: "banco_id" });
-
-      if (error) throw error;
-
-      await queryClient.invalidateQueries({ queryKey: ["taxas_bancarias"] });
-      toast.success("Taxas salvas com sucesso! Todos os usuários verão os novos valores.");
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      console.error("Erro ao salvar:", err);
-      toast.error(`Erro ao salvar: ${err.message}`);
-    } finally {
-      setSalvando(false);
+const salvar = async () => {
+  setSalvando(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast.error("Você precisa estar logado para salvar");
+      return;
     }
-  };
+
+    console.log("Usuário:", user);
+    console.log("Role:", user.role); // Verifique se o usuário tem a role correta
+
+    const rows = editados.map((b) => bancoConfigToRow(b, user?.id));
+    console.log("Enviando rows:", rows);
+
+    const { error } = await supabase
+      .from("taxas_bancarias")
+      .upsert(rows, { onConflict: "banco_id" });
+
+    if (error) throw error;
+
+    await queryClient.invalidateQueries({ queryKey: ["taxas_bancarias"] });
+    toast.success("Taxas salvas com sucesso! Todos os usuários verão os novos valores.");
+    onSaved();
+    onClose();
+  } catch (err: any) {
+    console.error("Erro detalhado:", err);
+    toast.error(`Erro ao salvar: ${err.message}`);
+  } finally {
+    setSalvando(false);
+  }
+};
 
   const resetar = () => {
     setEditados(JSON.parse(JSON.stringify(bancosOriginais)));

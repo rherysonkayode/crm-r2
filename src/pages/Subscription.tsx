@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,34 +47,28 @@ const plans = {
 };
 
 const Subscription = () => {
-  const { profile, user, signOut, refreshProfile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [timeLeft, setTimeLeft] = useState<string>("");
 
+  // Timer de contagem regressiva — só para trial ainda ativo
   useEffect(() => {
     if (!profile) return;
     if (profile.subscription_status !== "trial" || !profile.trial_end) return;
+    const trialEnd = new Date(profile.trial_end);
+    if (trialEnd < new Date()) return; // já expirou, não precisa de timer
 
     const updateTimer = () => {
       const now = new Date();
-      const end = new Date(profile.trial_end!);
-      const diffMs = end.getTime() - now.getTime();
-
-      if (diffMs <= 0) {
-        setTimeLeft("Expirado");
-        return;
-      }
+      const diffMs = trialEnd.getTime() - now.getTime();
+      if (diffMs <= 0) { setTimeLeft("Expirado"); return; }
 
       const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-      if (days > 0) {
-        setTimeLeft(`${days} dia${days > 1 ? "s" : ""} e ${hours}h`);
-      } else if (hours > 0) {
-        setTimeLeft(`${hours}h e ${minutes}min`);
-      } else {
-        setTimeLeft(`${minutes} minuto${minutes !== 1 ? "s" : ""}`);
-      }
+      if (days > 0) setTimeLeft(`${days} dia${days > 1 ? "s" : ""} e ${hours}h`);
+      else if (hours > 0) setTimeLeft(`${hours}h e ${minutes}min`);
+      else setTimeLeft(`${minutes} minuto${minutes !== 1 ? "s" : ""}`);
     };
 
     updateTimer();
@@ -83,20 +76,9 @@ const Subscription = () => {
     return () => clearInterval(interval);
   }, [profile]);
 
-  // Atualiza status para expirado no banco se trial já passou
-  useEffect(() => {
-    if (!profile || !user) return;
-    const isTrial = profile.subscription_status === "trial";
-    const trialExpired = profile.trial_end && new Date(profile.trial_end) < new Date();
-
-    if (isTrial && trialExpired) {
-      supabase
-        .from("profiles")
-        .update({ subscription_status: "expired" })
-        .eq("id", user.id)
-        .then(() => refreshProfile());
-    }
-  }, [profile?.subscription_status, profile?.trial_end]);
+  // REMOVIDO: useEffect que atualizava status no banco e chamava refreshProfile()
+  // Isso causava loop: profile ficava null momentaneamente → ProtectedRoute redirecionava
+  // A expiração é calculada em tempo real no frontend (ProtectedRoute + aqui embaixo)
 
   if (!profile) {
     return (
@@ -112,24 +94,37 @@ const Subscription = () => {
 
   const planKey = profile.plan && profile.plan in plans ? profile.plan : "start";
   const currentPlan = plans[planKey as keyof typeof plans];
-  const isTrial = profile.subscription_status === "trial";
-  const isActive = profile.subscription_status === "active";
+
+  // Calcula estado real em tempo real (não depende só do campo do banco)
+  const trialEnd = profile.trial_end ? new Date(profile.trial_end) : null;
+  const now = new Date();
   const isExpired =
     profile.subscription_status === "expired" ||
-    (isTrial && profile.trial_end && new Date(profile.trial_end) < new Date());
+    (profile.subscription_status === "trial" && trialEnd !== null && trialEnd < now);
+  const isActive = profile.subscription_status === "active";
+  const isTrial = profile.subscription_status === "trial" && !isExpired;
 
-  const trialProgressValue = profile.trial_end
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          100 -
-            ((new Date(profile.trial_end).getTime() - Date.now()) /
-              (3 * 24 * 60 * 60 * 1000)) *
+  const trialProgressValue =
+    trialEnd && profile.trial_start
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((now.getTime() - new Date(profile.trial_start).getTime()) /
+              (trialEnd.getTime() - new Date(profile.trial_start).getTime())) *
               100
+          )
         )
-      )
-    : 0;
+      : trialEnd
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            100 -
+              ((trialEnd.getTime() - now.getTime()) / (3 * 24 * 60 * 60 * 1000)) * 100
+          )
+        )
+      : 0;
 
   const getStatusBadge = () => {
     if (isExpired) return <Badge variant="destructive">Expirado</Badge>;
@@ -176,7 +171,7 @@ const Subscription = () => {
             </div>
 
             {/* Trial ativo */}
-            {isTrial && !isExpired && profile.trial_end && (
+            {isTrial && trialEnd && (
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <div className="flex items-center gap-2 text-blue-700 mb-2">
                   <Clock className="w-4 h-4" />
@@ -186,7 +181,7 @@ const Subscription = () => {
                   Seu acesso expira em: <strong>{timeLeft}</strong>
                 </p>
                 <p className="text-xs text-blue-500 mt-1">
-                  até {format(new Date(profile.trial_end), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  até {format(trialEnd, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </p>
                 <Progress value={trialProgressValue} className="mt-3 h-2" />
               </div>
@@ -197,7 +192,10 @@ const Subscription = () => {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Seu período de teste expirou. Assine agora para continuar usando o CRM R2.
+                  {trialEnd
+                    ? `Seu período de teste expirou em ${format(trialEnd, "dd/MM/yyyy", { locale: ptBR })}.`
+                    : "Seu acesso expirou."}{" "}
+                  Assine agora para continuar usando o CRM R2.
                 </AlertDescription>
               </Alert>
             )}
@@ -222,8 +220,8 @@ const Subscription = () => {
           <CardHeader>
             <CardTitle>Detalhes do plano {currentPlan.name}</CardTitle>
             <CardDescription>
-              R$ {currentPlan.price}/mês • {currentPlan.users}{" "}
-              {currentPlan.users === 1 ? "usuário" : "usuários"}
+              R$ {currentPlan.price}/mês •{" "}
+              {currentPlan.users === 1 ? "1 usuário" : `${currentPlan.users} usuários`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -244,7 +242,7 @@ const Subscription = () => {
               ))}
             </ul>
 
-            {(isExpired || (isTrial && !isExpired)) && (
+            {(isExpired || isTrial) && (
               <Button
                 onClick={handleSubscribe}
                 className="mt-6 w-full bg-[#7E22CE] hover:bg-[#6b21a8]"

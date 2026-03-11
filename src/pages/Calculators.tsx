@@ -30,7 +30,7 @@ const roundMoney = (val: number) => Math.round(val * 100) / 100;
 
 type Parcela = { numero: number; parcelaTotal: number; amortizacao: number; juros: number; taxas: number; saldo: number; };
 
-// HELPER: MIP + DFI mensais por banco (corrigido: mipAnual e dfiAnual já são percentuais, ex: 1.2 = 1,2% a.a.)
+// HELPER: MIP + DFI mensais por banco (mipAnual e dfiAnual em percentual, ex: 1.2 = 1,2% a.a.)
 function calcularSegurosMensais(banco: BancoConfig, valorFinanciado: number, valorImovel: number): number {
   const mipMensal = (valorFinanciado * (banco.mipAnual / 100)) / 12;
   const dfiMensal = (valorImovel * (banco.dfiAnual / 100)) / 12;
@@ -185,7 +185,7 @@ type BancoAgrupado = {
 const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor }: { banco: BancoAgrupado; melhorSimulacaoId: string | null; ordenarPor: OrdenarPor }) => {
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  // Ordena as simulações do banco conforme critério escolhido (já deve vir ordenado do pai, mas garantimos)
+  // Ordena as simulações do banco conforme critério escolhido
   const simulacoesOrdenadas = useMemo(() => {
     return [...banco.simulacoes].sort((a, b) => {
       if (ordenarPor === "totalPago") return a.totalPago - b.totalPago;
@@ -285,7 +285,7 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor }: { banco: Banc
                 </div>
               </div>
 
-              {/* Avisos específicos (mantidos) */}
+              {/* Avisos específicos */}
               {sim.bancoId === "inter" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
@@ -610,7 +610,7 @@ const FinanciamentoCalc = () => {
           linhasCaixa.push({
             nome: "SBPE (Relacionamento)",
             taxa: 10.26,
-            ltv: 80, // para SAC, será ajustado por sistema
+            ltv: 80, // será ajustado por sistema
             prazoMax: 420,
             condicao: true,
           });
@@ -858,7 +858,7 @@ const FinanciamentoCalc = () => {
     const agrupados = Array.from(bancoMap.values())
       .map(b => ({
         ...b,
-        simulacoes: b.simulacoes.sort((a, b) => a.totalPago - b.totalPago), // ordenação padrão por totalPago
+        simulacoes: b.simulacoes.sort((a, b) => a.totalPago - b.totalPago), // ordenação padrão
       }))
       .sort((a, b) => {
         const ordemA = bancos.find(bk => bk.id === a.bancoId)?.ordemSimulacao ?? 999;
@@ -887,7 +887,6 @@ const FinanciamentoCalc = () => {
     let melhor: { id: string; total: number } | null = null;
     results.forEach(banco => {
       banco.simulacoes.forEach(sim => {
-        // Critério dinâmico baseado no ordenarPor
         let valorComparacao: number;
         if (ordenarPor === "totalPago") valorComparacao = sim.totalPago;
         else if (ordenarPor === "primeiraParcela") valorComparacao = sim.primeiraParcela;

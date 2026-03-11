@@ -1,25 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-// ============================================================================
-// TIPOS
-// ============================================================================
-
-// Regra detalhada para cada tipo de imóvel (baseado no JSON da CrediMorar)
 export interface RegraDetalhada {
-  tipoImovelId: number;          // 0 = residencial, 1 = comercial, 2 = rural (e eventualmente 3)
+  tipoImovelId: number;          // 0=residencial padrão, 1=comercial, 2=rural, 3=residencial especial
   valorMinimoImovel: number;
   valorMinimoFinanciamento: number;
   prazoMinimo: number;
   prazoMaximo: number;
-  ltvMaximo: number;              // % máximo de financiamento sobre o valor do imóvel
-  maxDespesasPercent: number;     // % máximo de despesas que podem ser financiadas
-  minDespesasPercent?: number;    // % mínimo de despesas obrigatórias à vista (se houver)
+  ltvMaximo: number;              // percentual máximo de financiamento (ex: 80)
+  maxDespesasPercent: number;     // percentual máximo do valor do imóvel que pode ser financiado como despesas
+  minDespesasPercent?: number;    // percentual mínimo de despesas obrigatório à vista
 }
 
-// Configuração completa de um banco (mantendo tudo que já existia + novas propriedades)
 export interface BancoConfig {
-  // Existente
   id: string;
   nome: string;
   sigla: string;
@@ -28,8 +21,8 @@ export interface BancoConfig {
   maxPrazo: number;
   minImovel: number;
   tag: number;
-  mipAnual: number;
-  dfiAnual: number;
+  mipAnual: number;   // agora em percentual anual (ex: 0.8 = 0,8% a.a.)
+  dfiAnual: number;   // percentual anual (ex: 0.3 = 0,3% a.a.)
   maxFinancingPercent: {
     residencial: { sac: number; price: number };
     comercial:   { sac: number; price: number };
@@ -40,23 +33,23 @@ export interface BancoConfig {
     comercial:   { price: number; sac: number };
     rural:       { price: number; sac: number };
   };
-
-  // NOVAS propriedades (opcionais)
+  // NOVAS PROPRIEDADES
   regrasDetalhadas?: RegraDetalhada[];
-  estadosNaoAtendidos?: string[];        // UFs onde o banco não atua
-  ordemSimulacao?: number;                // ordem de exibição
-  selecionada?: boolean;                  // se deve vir marcado por padrão
-  desabilitada?: boolean;                 // se o banco está desabilitado (não aparece)
+  estadosNaoAtendidos?: string[];
+  ordemSimulacao?: number;
+  selecionada?: boolean;
+  desabilitada?: boolean;
 }
 
-// ============================================================================
-// FALLBACK HARDCODED (mar/2026) – enriquecido com base no JSON da CrediMorar
-// ============================================================================
+// Mapeamento dos tipos de imóvel para IDs (usado nas regras detalhadas)
+export const tipoParaId: Record<string, number> = {
+  residencial: 0,
+  comercial: 1,
+  rural: 2,
+};
 
+// Fallback enriquecido com base no JSON e ajustes de MIP/DFI/LTV
 const BANCOS_FALLBACK: BancoConfig[] = [
-  // --------------------------------------------------------------------------
-  // Bradesco
-  // --------------------------------------------------------------------------
   {
     id: "bradesco",
     nome: "Bradesco",
@@ -66,8 +59,8 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     maxPrazo: 420,
     minImovel: 100000,
     tag: 2114.03,
-    mipAnual: 0.037,
-    dfiAnual: 0.00825,
+    mipAnual: 0.8,      // 0,8% a.a.
+    dfiAnual: 0.3,      // 0,3% a.a.
     maxFinancingPercent: {
       residencial: { sac: 80, price: 80 },
       comercial:   { sac: 60, price: 60 },
@@ -78,14 +71,13 @@ const BANCOS_FALLBACK: BancoConfig[] = [
       comercial:   { sac: 13.50, price: 13.50 },
       rural:       { sac: 13.00, price: 13.00 },
     },
-    // Novas informações
     ordemSimulacao: 1,
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
     regrasDetalhadas: [
       {
-        tipoImovelId: 0, // residencial padrão
+        tipoImovelId: 0,
         valorMinimoImovel: 100000,
         valorMinimoFinanciamento: 0.01,
         prazoMinimo: 121,
@@ -94,7 +86,7 @@ const BANCOS_FALLBACK: BancoConfig[] = [
         maxDespesasPercent: 5,
       },
       {
-        tipoImovelId: 3, // residencial especial (ex: MCMV)
+        tipoImovelId: 3,
         valorMinimoImovel: 100000,
         valorMinimoFinanciamento: 0.01,
         prazoMinimo: 121,
@@ -103,7 +95,7 @@ const BANCOS_FALLBACK: BancoConfig[] = [
         maxDespesasPercent: 5,
       },
       {
-        tipoImovelId: 1, // comercial
+        tipoImovelId: 1,
         valorMinimoImovel: 100000,
         valorMinimoFinanciamento: 0.01,
         prazoMinimo: 121,
@@ -112,7 +104,7 @@ const BANCOS_FALLBACK: BancoConfig[] = [
         maxDespesasPercent: 5,
       },
       {
-        tipoImovelId: 2, // rural
+        tipoImovelId: 2,
         valorMinimoImovel: 1072000,
         valorMinimoFinanciamento: 750000,
         prazoMinimo: 121,
@@ -122,10 +114,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
       },
     ],
   },
-
-  // --------------------------------------------------------------------------
-  // Itaú
-  // --------------------------------------------------------------------------
   {
     id: "itau",
     nome: "Itaú",
@@ -135,8 +123,8 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     maxPrazo: 420,
     minImovel: 97561,
     tag: 850,
-    mipAnual: 0.038,
-    dfiAnual: 0.00825,
+    mipAnual: 0.8,
+    dfiAnual: 0.3,
     maxFinancingPercent: {
       residencial: { sac: 80, price: 80 },
       comercial:   { sac: 70, price: 70 },
@@ -160,7 +148,7 @@ const BANCOS_FALLBACK: BancoConfig[] = [
         prazoMaximo: 420,
         ltvMaximo: 90,
         maxDespesasPercent: 5,
-        minDespesasPercent: 2,
+        minDespesasPercent: 2,   // 2% obrigatório à vista
       },
       {
         tipoImovelId: 3,
@@ -185,10 +173,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
       // Rural (tipo 2) não tem regras definidas no JSON, então omitimos
     ],
   },
-
-  // --------------------------------------------------------------------------
-  // Santander
-  // --------------------------------------------------------------------------
   {
     id: "santander",
     nome: "Santander",
@@ -198,8 +182,8 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     maxPrazo: 420,
     minImovel: 100000,
     tag: 1950,
-    mipAnual: 0.036,
-    dfiAnual: 0.00825,
+    mipAnual: 0.8,
+    dfiAnual: 0.3,
     maxFinancingPercent: {
       residencial: { sac: 80, price: 80 },
       comercial:   { sac: 70, price: 70 },
@@ -244,10 +228,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
       },
     ],
   },
-
-  // --------------------------------------------------------------------------
-  // Inter
-  // --------------------------------------------------------------------------
   {
     id: "inter",
     nome: "Banco Inter",
@@ -257,10 +237,10 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     maxPrazo: 420,
     minImovel: 200000,
     tag: 5000,
-    mipAnual: 0.038,
-    dfiAnual: 0.00825,
+    mipAnual: 0.8,
+    dfiAnual: 0.3,
     maxFinancingPercent: {
-      residencial: { sac: 80, price: 80 },
+      residencial: { sac: 75, price: 75 },   // corrigido para 75%
       comercial:   { sac: 70, price: 60 },
       rural:       { sac: 70, price: 60 },
     },
@@ -303,10 +283,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
       },
     ],
   },
-
-  // --------------------------------------------------------------------------
-  // Caixa (mantido, mas sem regrasDetalhadas por enquanto)
-  // --------------------------------------------------------------------------
   {
     id: "caixa",
     nome: "Caixa Economica",
@@ -316,8 +292,8 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     maxPrazo: 420,
     minImovel: 80000,
     tag: 1200,
-    mipAnual: 0.037,
-    dfiAnual: 0.00825,
+    mipAnual: 0.8,
+    dfiAnual: 0.3,
     maxFinancingPercent: {
       residencial: { sac: 80, price: 50 },
       comercial:   { sac: 70, price: 50 },
@@ -332,11 +308,38 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
+    // Regras detalhadas baseadas no JSON? Não há, então usaremos valores padrão
+    // Mas podemos inferir do maxFinancingPercent e minImovel
+    regrasDetalhadas: [
+      {
+        tipoImovelId: 0,
+        valorMinimoImovel: 80000,
+        valorMinimoFinanciamento: 0,
+        prazoMinimo: 12,
+        prazoMaximo: 420,
+        ltvMaximo: 80, // para SAC; price será tratado separadamente pelo maxFinancingPercent
+        maxDespesasPercent: 5,
+      },
+      {
+        tipoImovelId: 1,
+        valorMinimoImovel: 80000,
+        valorMinimoFinanciamento: 0,
+        prazoMinimo: 12,
+        prazoMaximo: 420,
+        ltvMaximo: 70,
+        maxDespesasPercent: 5,
+      },
+      {
+        tipoImovelId: 2,
+        valorMinimoImovel: 80000,
+        valorMinimoFinanciamento: 0,
+        prazoMinimo: 12,
+        prazoMaximo: 420,
+        ltvMaximo: 70,
+        maxDespesasPercent: 5,
+      },
+    ],
   },
-
-  // --------------------------------------------------------------------------
-  // Banco do Brasil (mantido, sem regrasDetalhadas)
-  // --------------------------------------------------------------------------
   {
     id: "bb",
     nome: "Banco do Brasil",
@@ -346,8 +349,8 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     maxPrazo: 420,
     minImovel: 80000,
     tag: 1500,
-    mipAnual: 0.038,
-    dfiAnual: 0.00825,
+    mipAnual: 0.8,
+    dfiAnual: 0.3,
     maxFinancingPercent: {
       residencial: { sac: 70, price: 70 },
       comercial:   { sac: 60, price: 60 },
@@ -362,12 +365,39 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
+    regrasDetalhadas: [
+      {
+        tipoImovelId: 0,
+        valorMinimoImovel: 80000,
+        valorMinimoFinanciamento: 0,
+        prazoMinimo: 12,
+        prazoMaximo: 420,
+        ltvMaximo: 70,
+        maxDespesasPercent: 5,
+      },
+      {
+        tipoImovelId: 1,
+        valorMinimoImovel: 80000,
+        valorMinimoFinanciamento: 0,
+        prazoMinimo: 12,
+        prazoMaximo: 420,
+        ltvMaximo: 60,
+        maxDespesasPercent: 5,
+      },
+      {
+        tipoImovelId: 2,
+        valorMinimoImovel: 80000,
+        valorMinimoFinanciamento: 0,
+        prazoMinimo: 12,
+        prazoMaximo: 420,
+        ltvMaximo: 60,
+        maxDespesasPercent: 5,
+      },
+    ],
   },
 ];
 
-// ============================================================================
-// MAPPER: row do Supabase → BancoConfig (adaptado para incluir novas colunas)
-// ============================================================================
+// Função rowToBancoConfig adaptada para incluir novas propriedades
 function rowToBancoConfig(row: any): BancoConfig {
   return {
     id: row.banco_id,
@@ -390,7 +420,7 @@ function rowToBancoConfig(row: any): BancoConfig {
       comercial:   { sac: Number(row.taxa_comercial_sac),   price: Number(row.taxa_comercial_price)   },
       rural:       { sac: Number(row.taxa_rural_sac),       price: Number(row.taxa_rural_price)       },
     },
-    // Novas propriedades (se existirem no banco)
+    // Se houver colunas para as novas propriedades no Supabase, preencha aqui
     regrasDetalhadas: row.regras_detalhadas ? JSON.parse(row.regras_detalhadas) : undefined,
     estadosNaoAtendidos: row.estados_nao_atendidos ? row.estados_nao_atendidos.split(',') : undefined,
     ordemSimulacao: row.ordem_simulacao,
@@ -399,9 +429,7 @@ function rowToBancoConfig(row: any): BancoConfig {
   };
 }
 
-// ============================================================================
 // HOOK PRINCIPAL
-// ============================================================================
 export const useTaxasBancarias = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ["taxas_bancarias"],
@@ -409,7 +437,7 @@ export const useTaxasBancarias = () => {
       const { data, error } = await supabase
         .from("taxas_bancarias")
         .select("*")
-        .order("ordem_simulacao", { ascending: true }); // já ordena pela nova coluna
+        .order("banco_id");
       if (error) throw error;
       if (!data || data.length === 0) return null;
       return data.map(rowToBancoConfig);
@@ -429,9 +457,7 @@ export const useTaxasBancarias = () => {
   };
 };
 
-// ============================================================================
 // HELPER: converte BancoConfig de volta para row (para salvar no Supabase)
-// ============================================================================
 export function bancoConfigToRow(banco: BancoConfig, userId?: string) {
   return {
     banco_id: banco.id,
@@ -456,12 +482,6 @@ export function bancoConfigToRow(banco: BancoConfig, userId?: string) {
     taxa_comercial_price:   banco.taxas.comercial.price,
     taxa_rural_sac:         banco.taxas.rural.sac,
     taxa_rural_price:       banco.taxas.rural.price,
-    // Novas colunas (opcionais)
-    regras_detalhadas: banco.regrasDetalhadas ? JSON.stringify(banco.regrasDetalhadas) : null,
-    estados_nao_atendidos: banco.estadosNaoAtendidos ? banco.estadosNaoAtendidos.join(',') : null,
-    ordem_simulacao: banco.ordemSimulacao,
-    selecionada: banco.selecionada,
-    desabilitada: banco.desabilitada,
     ...(userId ? { updated_by: userId } : {}),
   };
 }

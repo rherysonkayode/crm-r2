@@ -12,7 +12,7 @@ import {
   AlertCircle, Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTaxasBancarias, BancoConfig } from "@/hooks/useTaxasBancarias";
+import { useTaxasBancarias, BancoConfig, tipoParaId } from "@/hooks/useTaxasBancarias";
 import { ModalTaxasBancarias } from "@/components/ModalTaxasBancarias";
 import { toast } from "sonner";
 
@@ -357,7 +357,7 @@ const FinanciamentoCalc = () => {
   const [sistema, setSistema] = useState<Sistema>("ambos");
   const [incluirDespesas, setIncluirDespesas] = useState(false);
   const [dataNascimento, setDataNascimento] = useState("");
-  const [uf, setUf] = useState<string>(""); // NOVO
+  const [uf, setUf] = useState<string>("");
   const [bancosAtivos, setBancosAtivos] = useState<string[]>([]);
   const [form, setForm] = useState({
     valorImovel: "",
@@ -378,13 +378,6 @@ const FinanciamentoCalc = () => {
   const [rendaMinimaInfo, setRendaMinimaInfo] = useState<string>("");
   const [temFgts, setTemFgts] = useState<boolean | null>(null);
   const [nenhumaSimulacaoMsg, setNenhumaSimulacaoMsg] = useState<string | null>(null);
-
-  // Mapeamento dos tipos de imóvel para IDs usados em regrasDetalhadas
-  const tipoParaId: Record<TipoImovel, number> = {
-    residencial: 0,
-    comercial: 1,
-    rural: 2,
-  };
 
   // Inicializa bancos ativos com base nas flags selecionada/desabilitada
   useEffect(() => {
@@ -547,8 +540,15 @@ const FinanciamentoCalc = () => {
         let financiadoCalc: number;
         let entradaEfetiva = entradaVal;
 
+        // Aplica despesa mínima obrigatória (se houver)
+        let custoObrigatorio = 0;
+        if (regra?.minDespesasPercent) {
+          custoObrigatorio = valor * (regra.minDespesasPercent / 100);
+          entradaEfetiva -= custoObrigatorio; // subtrai da entrada disponível
+        }
+
         if (simuladoPor === "financiamento") {
-          financiadoCalc = valor - entradaVal;
+          financiadoCalc = valor - entradaEfetiva;
           if (incluirDespesas) {
             const maxDespesas = regra?.maxDespesasPercent ?? 5;
             const despesasPermitidas = Math.min(custoDoc, valor * (maxDespesas / 100));
@@ -564,7 +564,7 @@ const FinanciamentoCalc = () => {
             financiadoCalc = parcelaBase / (1 / prazoEfetivo + taxaMensal);
           }
           financiadoCalc = Math.min(financiadoCalc, valor);
-          entradaEfetiva = valor - financiadoCalc;
+          entradaEfetiva = valor - financiadoCalc - custoObrigatorio; // entrada efetiva já descontou custo obrigatório
         } else { // renda
           const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
           const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
@@ -574,7 +574,7 @@ const FinanciamentoCalc = () => {
             financiadoCalc = parcelaMax / (1 / prazoEfetivo + taxaMensal);
           }
           financiadoCalc = Math.min(financiadoCalc, valor);
-          entradaEfetiva = valor - financiadoCalc;
+          entradaEfetiva = valor - financiadoCalc - custoObrigatorio;
         }
 
         if (financiadoCalc <= 0) continue;
@@ -593,8 +593,6 @@ const FinanciamentoCalc = () => {
         }
         const entradaMinBanco = valor * (1 - percentMaxLTV / 100);
         if (entradaEfetiva < entradaMinBanco - 0.01) continue;
-
-        // Despesa mínima obrigatória (se houver) – ignoramos por simplicidade
 
         const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
         const taxasMensaisTotal = taxasAdicionais + segurosMensais;

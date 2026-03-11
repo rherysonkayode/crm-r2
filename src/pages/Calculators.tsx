@@ -1,4 +1,3 @@
-// pages/Calculators.tsx
 import { useState, useRef, useMemo, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Calculator, Percent, Home, TrendingUp, RefreshCw, Download,
   ChevronUp, Building2, User, ChevronDown, Check, Settings,
-  AlertCircle, Info, Filter
+  AlertCircle, Info, ArrowUpDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaxasBancarias, BancoConfig } from "@/hooks/useTaxasBancarias";
@@ -22,7 +21,7 @@ type Sistema = "price" | "sac" | "ambos";
 type TipoImovel = "residencial" | "comercial" | "rural";
 type TipoUso = "novo" | "usado";
 type SimuladoPor = "financiamento" | "parcela" | "renda";
-type Ordenacao = "totalPago" | "primeiraParcela" | "totalJuros" | "rendaExigida";
+type OrdenarPor = "totalPago" | "primeiraParcela" | "totalJuros" | "rendaExigida";
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
@@ -31,10 +30,10 @@ const roundMoney = (val: number) => Math.round(val * 100) / 100;
 
 type Parcela = { numero: number; parcelaTotal: number; amortizacao: number; juros: number; taxas: number; saldo: number; };
 
-// HELPER: MIP + DFI mensais por banco (corrigido: agora mipAnual e dfiAnual já são percentuais, ex: 0.8 = 0,8%)
+// HELPER: MIP + DFI mensais por banco (corrigido: mipAnual e dfiAnual já são percentuais, ex: 1.2 = 1,2% a.a.)
 function calcularSegurosMensais(banco: BancoConfig, valorFinanciado: number, valorImovel: number): number {
-  const mipMensal = (valorFinanciado * banco.mipAnual / 100) / 12;
-  const dfiMensal = (valorImovel * banco.dfiAnual / 100) / 12;
+  const mipMensal = (valorFinanciado * (banco.mipAnual / 100)) / 12;
+  const dfiMensal = (valorImovel * (banco.dfiAnual / 100)) / 12;
   return roundMoney(mipMensal + dfiMensal);
 }
 
@@ -171,8 +170,7 @@ type Simulacao = {
   rendaSuficiente: boolean;
   tag: number;
   segurosMensais: number;
-  // Para identificar a linha da Caixa, se aplicável
-  linhaCaixa?: string; // "SBPE", "MCMV", "ProCotista", "SFI"
+  linhaNome?: string; // para identificar a linha da Caixa
 };
 
 type BancoAgrupado = {
@@ -184,8 +182,19 @@ type BancoAgrupado = {
   simulacoes: Simulacao[];
 };
 
-const BancoResultCard = ({ banco, melhorSimulacaoId, ordenacao }: { banco: BancoAgrupado; melhorSimulacaoId: string | null; ordenacao: Ordenacao }) => {
+const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor }: { banco: BancoAgrupado; melhorSimulacaoId: string | null; ordenarPor: OrdenarPor }) => {
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Ordena as simulações do banco conforme critério escolhido (já deve vir ordenado do pai, mas garantimos)
+  const simulacoesOrdenadas = useMemo(() => {
+    return [...banco.simulacoes].sort((a, b) => {
+      if (ordenarPor === "totalPago") return a.totalPago - b.totalPago;
+      if (ordenarPor === "primeiraParcela") return a.primeiraParcela - b.primeiraParcela;
+      if (ordenarPor === "totalJuros") return a.totalJuros - b.totalJuros;
+      if (ordenarPor === "rendaExigida") return a.rendaExigida - b.rendaExigida;
+      return 0;
+    });
+  }, [banco.simulacoes, ordenarPor]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -197,15 +206,15 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenacao }: { banco: Banco
           </div>
           <p className="text-sm font-semibold text-card-foreground">{banco.bancoNome}</p>
         </div>
-        <Badge variant="outline">{banco.simulacoes.length} opção(ões)</Badge>
+        <Badge variant="outline">{simulacoesOrdenadas.length} opção(oes)</Badge>
       </div>
 
       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {banco.simulacoes.map((sim) => {
-          const isMelhor = melhorSimulacaoId === `${sim.bancoId}-${sim.sistema}${sim.linhaCaixa ? '-' + sim.linhaCaixa : ''}`;
+        {simulacoesOrdenadas.map((sim) => {
+          const isMelhor = melhorSimulacaoId === `${sim.bancoId}-${sim.sistema}-${sim.linhaNome || ''}`;
           return (
             <div
-              key={sim.sistema + (sim.linhaCaixa || '')}
+              key={`${sim.sistema}-${sim.linhaNome || ''}`}
               className={cn(
                 "relative rounded-lg border p-4 transition-all hover:shadow-md",
                 sim.sistema === "sac" ? "border-blue-200" : "border-green-200",
@@ -217,16 +226,16 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenacao }: { banco: Banco
                   Melhor opção
                 </Badge>
               )}
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", sim.sistema === "sac" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700")}>
                   {sim.sistema.toUpperCase()}
                 </span>
-                <span className="text-xs text-muted-foreground">{sim.taxaAnual.toFixed(2)}% a.a.</span>
-                {sim.linhaCaixa && (
-                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                    {sim.linhaCaixa}
-                  </Badge>
+                {sim.linhaNome && (
+                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                    {sim.linhaNome}
+                  </span>
                 )}
+                <span className="text-xs text-muted-foreground">{sim.taxaAnual.toFixed(2)}% a.a.</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -276,35 +285,65 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenacao }: { banco: Banco
                 </div>
               </div>
 
-              {/* Avisos específicos */}
-              {banco.bancoId === "inter" && (
+              {/* Avisos específicos (mantidos) */}
+              {sim.bancoId === "inter" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
                   <span><strong>Taxa pós-fixada (IPCA):</strong> a partir de 8,20% a 9,50% a.a. + IPCA. A parcela varia mensalmente conforme a inflação. Linha TR disponível: 13,76% a.a.</span>
                 </div>
               )}
-              {banco.bancoId === "caixa" && sim.linhaCaixa === "MCMV" && (
+              {sim.bancoId === "caixa" && sim.linhaNome?.includes("Pró-Cotista") && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-green-700 bg-green-50 border border-green-100 p-2 rounded-lg">
-                  <Check className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Minha Casa, Minha Vida - Classe Média</strong> · Renda até R$12.000 · Imóvel até R$500.000 · Taxa fixa de 10% a.a.</span>
+                  <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Pró-Cotista:</strong> Para quem tem FGTS - Imóvel até R$500.000 - Taxa a partir de 8,66% a.a.</span>
                 </div>
               )}
-              {banco.bancoId === "caixa" && sim.linhaCaixa === "ProCotista" && (
+              {sim.bancoId === "caixa" && sim.linhaNome?.includes("MCMV") && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Pró-Cotista</strong> · Para quem tem FGTS · Imóvel até R$500.000 · Taxa a partir de 8,66% a.a.</span>
+                  <span><strong>Minha Casa, Minha Vida - Classe Média:</strong> Renda até R$12.000 - Imóvel até R$500.000 - Taxa fixa de 10% a.a.</span>
                 </div>
               )}
-              {banco.bancoId === "caixa" && sim.linhaCaixa === "SBPE" && (
+              {sim.bancoId === "caixa" && sim.linhaNome?.includes("SBPE") && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
                   <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>SBPE:</strong> {sim.taxaAnual.toFixed(2)}% a.a. - LTV {sim.sistema === "sac" ? "80%" : "70%"} - SFH (até R$2,25mi)</span>
+                </div>
+              )}
+              {sim.bancoId === "caixa" && sim.linhaNome?.includes("SBPE") && sim.sistema === "price" && (
+                <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-1 rounded">
+                  ⚠ LTV limitado a 70% no PRICE (SBPE)
+                </div>
+              )}
+              {sim.bancoId === "bb" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>BB cobra tarifa de administração mensal</strong> além das parcelas. Pró-Cotista FGTS: a partir de 9% a.a. Taxa base balcão exibida: 12% a.a. + TR.</span>
+                </div>
+              )}
+              {sim.bancoId === "itau" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa balcão: 12,19% a.a.</strong> Com relacionamento (Varejo/Uniclass/Personnalité): a partir de 11,60%. Opção Poupança: 8,32% + rendimento poupança.</span>
+                </div>
+              )}
+              {sim.bancoId === "santander" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa balcão: 13,19% a.a.</strong> Com relacionamento (Van Gogh/Select): 11,69% a 11,79% a.a. + TR.</span>
+                </div>
+              )}
+              {sim.bancoId === "bradesco" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
                   <span>
-                    <strong>SBPE:</strong> {sim.taxaAnual.toFixed(2)}% a.a. · LTV {sim.sistema === "price" ? "70%" : "80%"} · 
-                    {sim.valorFinanciado <= 2250000 ? " SFH (até R$2,25mi)" : " SFI (acima R$2,25mi)"}
+                    <strong>Taxa balcão: 12,79% a.a.</strong> Com relacionamento (Exclusive/Prime): 11,99%. Opção Poupança: 5,83% + poupança.{" "}
+                    {sim.sistema === "price" && <strong className="text-amber-700">⚠ PRICE: comprometimento de renda limitado a 15% (vs 30% no SAC).</strong>}
+                    {sim.sistema === "sac" && " SAC: comprometimento de renda até 30%."}
                   </span>
                 </div>
               )}
-              {sim.taxaAnual > 12.0 && (
+              {sim.taxaAnual > 12.0 && sim.bancoId !== "caixa" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
                   <span><strong>Taxa acima de 12% a.a. (teto SFH):</strong> Esta operação sai do SFH e entra no SFI. O uso do FGTS não é permitido nesta linha. Teto SFH: imóveis até R$ 2.250.000.</span>
@@ -318,16 +357,16 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenacao }: { banco: Banco
               )}
 
               <button
-                onClick={() => setExpanded(expanded === sim.sistema + (sim.linhaCaixa || '') ? null : sim.sistema + (sim.linhaCaixa || ''))}
+                onClick={() => setExpanded(expanded === `${sim.sistema}-${sim.linhaNome}` ? null : `${sim.sistema}-${sim.linhaNome}`)}
                 className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-medium mt-3"
               >
-                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded === sim.sistema + (sim.linhaCaixa || '') && "rotate-180")} />
-                {expanded === sim.sistema + (sim.linhaCaixa || '') ? "Ocultar" : "Ver"} tabela de parcelas
+                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded === `${sim.sistema}-${sim.linhaNome}` && "rotate-180")} />
+                {expanded === `${sim.sistema}-${sim.linhaNome}` ? "Ocultar" : "Ver"} tabela de parcelas
               </button>
               <AnimatePresence>
-                {expanded === sim.sistema + (sim.linhaCaixa || '') && (
+                {expanded === `${sim.sistema}-${sim.linhaNome}` && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                    <TabelaParcelas parcelas={sim.parcelas} titulo={`${banco.bancoNome} — ${sim.sistema.toUpperCase()}${sim.linhaCaixa ? ' - ' + sim.linhaCaixa : ''}`} />
+                    <TabelaParcelas parcelas={sim.parcelas} titulo={`${banco.bancoNome} — ${sim.sistema.toUpperCase()} ${sim.linhaNome || ''}`} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -370,10 +409,9 @@ const FinanciamentoCalc = () => {
   const [rendaMinimaInfo, setRendaMinimaInfo] = useState<string>("");
   const [temFgts, setTemFgts] = useState<boolean | null>(null);
   const [nenhumaSimulacaoMsg, setNenhumaSimulacaoMsg] = useState<string | null>(null);
-  
-  // NOVO: filtro de ordenação
-  const [ordenacao, setOrdenacao] = useState<Ordenacao>("totalPago");
+  const [ordenarPor, setOrdenarPor] = useState<OrdenarPor>("totalPago");
 
+  // Mapeamento dos tipos de imóvel para IDs
   const tipoParaId: Record<TipoImovel, number> = {
     residencial: 0,
     comercial: 1,
@@ -515,62 +553,106 @@ const FinanciamentoCalc = () => {
       // Filtro por UF
       if (uf && banco.estadosNaoAtendidos?.includes(uf)) continue;
 
-      // Para a Caixa, vamos gerar múltiplas simulações por linha
+      // Obtém a regra detalhada (se existir)
+      const regra = banco.regrasDetalhadas?.find(r => r.tipoImovelId === tipoParaId[tipoImovel]);
+
+      // Valor mínimo do imóvel
+      const valorMinimoImovel = regra?.valorMinimoImovel ?? banco.minImovel;
+      if (valor < valorMinimoImovel) continue;
+
+      // Prazo máximo (regra, banco e idade)
+      const prazoMaximo = regra?.prazoMaximo ?? banco.maxPrazo;
+      const prazoEfetivoBase = Math.min(prazoSolicitado, prazoMaximo, prazoMaxUser);
+      if (prazoEfetivoBase <= 0) continue;
+
+      // Prazo mínimo
+      const prazoMinimo = regra?.prazoMinimo ?? 12;
+      if (prazoEfetivoBase < prazoMinimo) continue;
+
+      const sistemas: Array<"price" | "sac"> = sistema === "ambos" ? ["price", "sac"] : [sistema as "price" | "sac"];
+
+      // Para a CAIXA, gerar múltiplas linhas
       if (banco.id === "caixa") {
-        // Determinar quais linhas se aplicam
-        const linhas: Array<{ nome: string; taxa: number; ltv: number; condicoes: string }> = [];
+        // Determinar quais linhas são aplicáveis
+        const linhasCaixa: Array<{
+          nome: string;
+          taxa: number;
+          ltv: number; // percentual
+          prazoMax?: number;
+          condicao: boolean;
+        }> = [];
 
-        // MCMV Classe Média (renda <= 12.000 e imóvel <= 500.000)
-        if (rendaMensal <= 12000 && valor <= 500000 && tipoImovel === "residencial") {
-          linhas.push({ nome: "MCMV", taxa: 10.0, ltv: 80, condicoes: "Renda até R$12k · Imóvel até R$500k" });
+        // Pró-Cotista (se tem FGTS e imóvel <= 500k)
+        if (temFgts && valor <= 500000) {
+          linhasCaixa.push({
+            nome: "Pró-Cotista",
+            taxa: 8.66,
+            ltv: 80,
+            prazoMax: 420,
+            condicao: true,
+          });
         }
 
-        // Pró-Cotista (tem FGTS e imóvel <= 500.000)
-        if (temFgts === true && valor <= 500000 && tipoImovel === "residencial") {
-          linhas.push({ nome: "ProCotista", taxa: 8.66, ltv: 80, condicoes: "FGTS · Imóvel até R$500k" });
+        // MCMV Classe Média (renda <= 12k e imóvel <= 500k)
+        if (rendaMensal <= 12000 && valor <= 500000) {
+          linhasCaixa.push({
+            nome: "MCMV",
+            taxa: 10.0,
+            ltv: 80,
+            prazoMax: 420,
+            condicao: true,
+          });
         }
 
-        // SBPE (sempre disponível, mas com variações SFH/SFI)
-        // SFH até 2.25mi, SFI acima
+        // SBPE SFH (imóvel <= 2.25mi)
         if (valor <= 2250000) {
-          linhas.push({ nome: "SBPE", taxa: 11.49, ltv: 80, condicoes: "SFH · Imóvel até R$2,25mi" });
-          // Com relacionamento (opcional, podemos simular como uma taxa alternativa)
-          linhas.push({ nome: "SBPE", taxa: 10.26, ltv: 80, condicoes: "SFH + Relacionamento" });
-        } else {
-          linhas.push({ nome: "SFI", taxa: 11.90, ltv: 80, condicoes: "SFI · Acima de R$2,25mi" });
+          // Versão com relacionamento (taxa menor)
+          linhasCaixa.push({
+            nome: "SBPE (Relacionamento)",
+            taxa: 10.26,
+            ltv: 80, // para SAC, será ajustado por sistema
+            prazoMax: 420,
+            condicao: true,
+          });
+          // Versão balcão
+          linhasCaixa.push({
+            nome: "SBPE (Balcão)",
+            taxa: 11.49,
+            ltv: 80,
+            prazoMax: 420,
+            condicao: true,
+          });
         }
 
-        // Para cada linha, gerar simulações
-        for (const linha of linhas) {
-          // Pular se a linha já foi processada com mesmo nome? Vamos manter todas.
-          const sistemasLoop: Array<"price" | "sac"> = sistema === "ambos" ? ["price", "sac"] : [sistema as "price" | "sac"];
-          
-          for (const sis of sistemasLoop) {
-            // Para MCMV e Pró-Cotista, LTV é 80% independente do sistema (price/sac)
-            const ltvEfetivo = linha.ltv;
-            
-            // Verificar entrada
-            const entradaMinBanco = valor * (1 - ltvEfetivo / 100);
-            if (entradaVal < entradaMinBanco - 0.01) continue;
-
-            // Prazo máximo da linha (usar o padrão do banco, 420)
-            const prazoMaximo = 420; // poderia variar por linha, mas vamos manter simples
-            const prazoEfetivo = Math.min(prazoSolicitado, prazoMaximo, prazoMaxUser);
-            if (prazoEfetivo <= 0) continue;
+        // Para cada linha, gerar simulações para os sistemas escolhidos
+        for (const linha of linhasCaixa) {
+          for (const sis of sistemas) {
+            // Ajustar LTV conforme sistema (SBPE tem LTV diferente para PRICE)
+            let ltvEfetivo = linha.ltv;
+            if (linha.nome.includes("SBPE")) {
+              ltvEfetivo = sis === "sac" ? 80 : 70;
+            }
 
             const taxaAnual = linha.taxa;
-            const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
+            const prazoEfetivo = Math.min(prazoEfetivoBase, linha.prazoMax || 420);
+            if (prazoEfetivo < 12) continue;
 
+            const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
             let financiadoCalc: number;
             let entradaEfetiva = entradaVal;
 
             if (simuladoPor === "financiamento") {
               financiadoCalc = valor - entradaVal;
+              // Validar LTV da linha
+              const entradaMinima = valor * (1 - ltvEfetivo / 100);
+              if (entradaEfetiva < entradaMinima - 0.01) continue; // entrada insuficiente
               if (incluirDespesas) {
-                financiadoCalc += custoDoc;
+                const maxDespesas = regra?.maxDespesasPercent ?? 5;
+                const despesasPermitidas = Math.min(custoDoc, valor * (maxDespesas / 100));
+                financiadoCalc += despesasPermitidas;
               }
             } else if (simuladoPor === "parcela") {
-              const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
+              const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
               const parcelaBase = parcelaDesejada - taxasAdicionais - seguroEstimado;
               if (parcelaBase <= 0) continue;
               if (sis === "price") {
@@ -578,26 +660,31 @@ const FinanciamentoCalc = () => {
               } else {
                 financiadoCalc = parcelaBase / (1 / prazoEfetivo + taxaMensal);
               }
-              financiadoCalc = Math.min(financiadoCalc, valor);
+              const financiadoMax = valor * (ltvEfetivo / 100);
+              financiadoCalc = Math.min(financiadoCalc, financiadoMax, valor);
               entradaEfetiva = valor - financiadoCalc;
             } else { // renda
-              const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
+              const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
               const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
               if (sis === "price") {
                 financiadoCalc = parcelaMax * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
               } else {
                 financiadoCalc = parcelaMax / (1 / prazoEfetivo + taxaMensal);
               }
-              financiadoCalc = Math.min(financiadoCalc, valor);
+              const financiadoMax = valor * (ltvEfetivo / 100);
+              financiadoCalc = Math.min(financiadoCalc, financiadoMax, valor);
               entradaEfetiva = valor - financiadoCalc;
             }
 
             if (financiadoCalc <= 0) continue;
 
-            // Validação de valor mínimo financiado (usar regra do banco se houver)
-            const regra = banco.regrasDetalhadas?.find(r => r.tipoImovelId === tipoParaId[tipoImovel]);
+            // Valor mínimo financiado
             const valorMinimoFinanciamento = regra?.valorMinimoFinanciamento ?? 0;
             if (financiadoCalc < valorMinimoFinanciamento) continue;
+
+            // Re-valida LTV (já feita, mas segurança)
+            const entradaMinBanco = valor * (1 - ltvEfetivo / 100);
+            if (entradaEfetiva < entradaMinBanco - 0.01) continue;
 
             const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
             const taxasMensaisTotal = taxasAdicionais + segurosMensais;
@@ -631,7 +718,7 @@ const FinanciamentoCalc = () => {
               rendaSuficiente,
               tag: banco.tag,
               segurosMensais,
-              linhaCaixa: linha.nome,
+              linhaNome: linha.nome,
             };
 
             if (!bancoMap.has(banco.id)) {
@@ -648,122 +735,110 @@ const FinanciamentoCalc = () => {
             algumaSimulacaoGerada = true;
           }
         }
-        continue; // pula o processamento padrão para a Caixa
-      }
+      } else {
+        // Para outros bancos, lógica original (com suporte a regras detalhadas)
+        for (const sis of sistemas) {
+          const taxaAnual = banco.taxas[tipoImovel][sis];
+          if (!taxaAnual) continue;
 
-      // Para os demais bancos, lógica original
-      const regra = banco.regrasDetalhadas?.find(r => r.tipoImovelId === tipoParaId[tipoImovel]);
-      const valorMinimoImovel = regra?.valorMinimoImovel ?? banco.minImovel;
-      if (valor < valorMinimoImovel) continue;
+          const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
+          let financiadoCalc: number;
+          let entradaEfetiva = entradaVal;
 
-      const prazoMaximo = regra?.prazoMaximo ?? banco.maxPrazo;
-      const prazoEfetivo = Math.min(prazoSolicitado, prazoMaximo, prazoMaxUser);
-      if (prazoEfetivo <= 0) continue;
-
-      const prazoMinimo = regra?.prazoMinimo ?? 12;
-      if (prazoEfetivo < prazoMinimo) continue;
-
-      const sistemas: Array<"price" | "sac"> = sistema === "ambos" ? ["price", "sac"] : [sistema as "price" | "sac"];
-
-      for (const sis of sistemas) {
-        const taxaAnual = banco.taxas[tipoImovel][sis];
-        if (!taxaAnual) continue;
-
-        const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
-        let financiadoCalc: number;
-        let entradaEfetiva = entradaVal;
-
-        if (simuladoPor === "financiamento") {
-          financiadoCalc = valor - entradaVal;
-          if (incluirDespesas) {
-            const maxDespesas = regra?.maxDespesasPercent ?? 5;
-            const despesasPermitidas = Math.min(custoDoc, valor * (maxDespesas / 100));
-            financiadoCalc += despesasPermitidas;
+          if (simuladoPor === "financiamento") {
+            financiadoCalc = valor - entradaVal;
+            if (incluirDespesas) {
+              const maxDespesas = regra?.maxDespesasPercent ?? 5;
+              const despesasPermitidas = Math.min(custoDoc, valor * (maxDespesas / 100));
+              financiadoCalc += despesasPermitidas;
+            }
+          } else if (simuladoPor === "parcela") {
+            const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
+            const parcelaBase = parcelaDesejada - taxasAdicionais - seguroEstimado;
+            if (parcelaBase <= 0) continue;
+            if (sis === "price") {
+              financiadoCalc = parcelaBase * (Math.pow(1 + taxaMensal, prazoEfetivoBase) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivoBase));
+            } else {
+              financiadoCalc = parcelaBase / (1 / prazoEfetivoBase + taxaMensal);
+            }
+            financiadoCalc = Math.min(financiadoCalc, valor);
+            entradaEfetiva = valor - financiadoCalc;
+          } else { // renda
+            const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
+            const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
+            if (sis === "price") {
+              financiadoCalc = parcelaMax * (Math.pow(1 + taxaMensal, prazoEfetivoBase) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivoBase));
+            } else {
+              financiadoCalc = parcelaMax / (1 / prazoEfetivoBase + taxaMensal);
+            }
+            financiadoCalc = Math.min(financiadoCalc, valor);
+            entradaEfetiva = valor - financiadoCalc;
           }
-        } else if (simuladoPor === "parcela") {
-          const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
-          const parcelaBase = parcelaDesejada - taxasAdicionais - seguroEstimado;
-          if (parcelaBase <= 0) continue;
-          if (sis === "price") {
-            financiadoCalc = parcelaBase * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
+
+          if (financiadoCalc <= 0) continue;
+
+          // Valor mínimo financiado
+          const valorMinimoFinanciamento = regra?.valorMinimoFinanciamento ?? 0;
+          if (financiadoCalc < valorMinimoFinanciamento) continue;
+
+          // LTV
+          let percentMaxLTV: number;
+          if (regra) {
+            percentMaxLTV = regra.ltvMaximo;
           } else {
-            financiadoCalc = parcelaBase / (1 / prazoEfetivo + taxaMensal);
+            const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+            percentMaxLTV = typeof ltv[sis] === "number" ? ltv[sis] : 80;
           }
-          financiadoCalc = Math.min(financiadoCalc, valor);
-          entradaEfetiva = valor - financiadoCalc;
-        } else { // renda
-          const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
-          const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
-          if (sis === "price") {
-            financiadoCalc = parcelaMax * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
-          } else {
-            financiadoCalc = parcelaMax / (1 / prazoEfetivo + taxaMensal);
-          }
-          financiadoCalc = Math.min(financiadoCalc, valor);
-          entradaEfetiva = valor - financiadoCalc;
-        }
+          const entradaMinBanco = valor * (1 - percentMaxLTV / 100);
+          if (entradaEfetiva < entradaMinBanco - 0.01) continue;
 
-        if (financiadoCalc <= 0) continue;
+          const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
+          const taxasMensaisTotal = taxasAdicionais + segurosMensais;
 
-        const valorMinimoFinanciamento = regra?.valorMinimoFinanciamento ?? 0;
-        if (financiadoCalc < valorMinimoFinanciamento) continue;
+          const { parcelas, totalJuros, primeiraParcela, ultimaParcela } = calcularParcelas(
+            financiadoCalc,
+            taxaMensal,
+            prazoEfetivoBase,
+            taxasMensaisTotal,
+            sis
+          );
 
-        let percentMaxLTV: number;
-        if (regra) {
-          percentMaxLTV = regra.ltvMaximo;
-        } else {
-          const ltv = banco.maxFinancingPercent[tipoImovel] as any;
-          percentMaxLTV = typeof ltv[sis] === "number" ? ltv[sis] : 80;
-        }
-        const entradaMinBanco = valor * (1 - percentMaxLTV / 100);
-        if (entradaEfetiva < entradaMinBanco - 0.01) continue;
+          const rendaSuficiente = simuladoPor !== "renda" || (primeiraParcela <= rendaMensal * 0.3);
 
-        const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
-        const taxasMensaisTotal = taxasAdicionais + segurosMensais;
-
-        const { parcelas, totalJuros, primeiraParcela, ultimaParcela } = calcularParcelas(
-          financiadoCalc,
-          taxaMensal,
-          prazoEfetivo,
-          taxasMensaisTotal,
-          sis
-        );
-
-        const rendaSuficiente = simuladoPor !== "renda" || (primeiraParcela <= rendaMensal * 0.3);
-
-        const simulacao: Simulacao = {
-          bancoId: banco.id,
-          bancoNome: banco.nome,
-          cor: banco.cor,
-          corTexto: banco.corTexto,
-          sigla: banco.sigla,
-          taxaAnual,
-          sistema: sis,
-          prazoUsado: prazoEfetivo,
-          primeiraParcela,
-          ultimaParcela,
-          totalJuros,
-          totalPago: financiadoCalc + totalJuros + taxasMensaisTotal * prazoEfetivo,
-          rendaExigida: primeiraParcela / 0.3,
-          parcelas,
-          valorFinanciado: financiadoCalc,
-          rendaSuficiente,
-          tag: banco.tag,
-          segurosMensais,
-        };
-
-        if (!bancoMap.has(banco.id)) {
-          bancoMap.set(banco.id, {
+          const simulacao: Simulacao = {
             bancoId: banco.id,
             bancoNome: banco.nome,
             cor: banco.cor,
             corTexto: banco.corTexto,
             sigla: banco.sigla,
-            simulacoes: [],
-          });
+            taxaAnual,
+            sistema: sis,
+            prazoUsado: prazoEfetivoBase,
+            primeiraParcela,
+            ultimaParcela,
+            totalJuros,
+            totalPago: financiadoCalc + totalJuros + taxasMensaisTotal * prazoEfetivoBase,
+            rendaExigida: primeiraParcela / 0.3,
+            parcelas,
+            valorFinanciado: financiadoCalc,
+            rendaSuficiente,
+            tag: banco.tag,
+            segurosMensais,
+          };
+
+          if (!bancoMap.has(banco.id)) {
+            bancoMap.set(banco.id, {
+              bancoId: banco.id,
+              bancoNome: banco.nome,
+              cor: banco.cor,
+              corTexto: banco.corTexto,
+              sigla: banco.sigla,
+              simulacoes: [],
+            });
+          }
+          bancoMap.get(banco.id)!.simulacoes.push(simulacao);
+          algumaSimulacaoGerada = true;
         }
-        bancoMap.get(banco.id)!.simulacoes.push(simulacao);
-        algumaSimulacaoGerada = true;
       }
     }
 
@@ -779,17 +854,11 @@ const FinanciamentoCalc = () => {
       return;
     }
 
-    // Ordena bancos por ordemSimulacao e depois aplica ordenação escolhida dentro de cada banco
+    // Ordena bancos por ordemSimulacao
     const agrupados = Array.from(bancoMap.values())
       .map(b => ({
         ...b,
-        simulacoes: b.simulacoes.sort((a, b) => {
-          if (ordenacao === "totalPago") return a.totalPago - b.totalPago;
-          if (ordenacao === "primeiraParcela") return a.primeiraParcela - b.primeiraParcela;
-          if (ordenacao === "totalJuros") return a.totalJuros - b.totalJuros;
-          if (ordenacao === "rendaExigida") return a.rendaExigida - b.rendaExigida;
-          return 0;
-        }),
+        simulacoes: b.simulacoes.sort((a, b) => a.totalPago - b.totalPago), // ordenação padrão por totalPago
       }))
       .sort((a, b) => {
         const ordemA = bancos.find(bk => bk.id === a.bancoId)?.ordemSimulacao ?? 999;
@@ -810,29 +879,29 @@ const FinanciamentoCalc = () => {
     setForm({ valorImovel: "", entrada: "", prazo: "420", taxasMensais: "0", parcelaDesejada: "", rendaMensal: "" });
     setResults([]); setCustoDocumentacao(0); setPrazoMaximoAviso(""); setDataNascimento(""); setErroEntrada(null); setNenhumaSimulacaoMsg(null);
     setUf("");
-    setOrdenacao("totalPago");
+    setTemFgts(null);
   };
 
-  // Cálculo da melhor simulação baseado na ordenação atual
   const melhorSimulacaoId = useMemo(() => {
     if (!results.length) return null;
-    let melhor: { id: string; valor: number } | null = null;
+    let melhor: { id: string; total: number } | null = null;
     results.forEach(banco => {
       banco.simulacoes.forEach(sim => {
-        const chave = `${sim.bancoId}-${sim.sistema}${sim.linhaCaixa ? '-' + sim.linhaCaixa : ''}`;
+        // Critério dinâmico baseado no ordenarPor
         let valorComparacao: number;
-        if (ordenacao === "totalPago") valorComparacao = sim.totalPago;
-        else if (ordenacao === "primeiraParcela") valorComparacao = sim.primeiraParcela;
-        else if (ordenacao === "totalJuros") valorComparacao = sim.totalJuros;
-        else valorComparacao = sim.rendaExigida;
-        
-        if (!melhor || valorComparacao < melhor.valor) {
-          melhor = { id: chave, valor: valorComparacao };
+        if (ordenarPor === "totalPago") valorComparacao = sim.totalPago;
+        else if (ordenarPor === "primeiraParcela") valorComparacao = sim.primeiraParcela;
+        else if (ordenarPor === "totalJuros") valorComparacao = sim.totalJuros;
+        else if (ordenarPor === "rendaExigida") valorComparacao = sim.rendaExigida;
+        else valorComparacao = sim.totalPago;
+
+        if (!melhor || valorComparacao < melhor.total) {
+          melhor = { id: `${sim.bancoId}-${sim.sistema}-${sim.linhaNome || ''}`, total: valorComparacao };
         }
       });
     });
     return melhor?.id || null;
-  }, [results, ordenacao]);
+  }, [results, ordenarPor]);
 
   return (
     <div className="space-y-6">
@@ -977,7 +1046,7 @@ const FinanciamentoCalc = () => {
           <Input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} max={new Date().toISOString().split("T")[0]} />
           <p className="text-xs text-muted-foreground">Valida o limite de idade de 80 anos e 6m</p>
         </div>
-        {/* NOVO CAMPO UF */}
+        {/* Campo UF */}
         <div className="space-y-2">
           <Label>UF do Imóvel (opcional)</Label>
           <select
@@ -1092,25 +1161,24 @@ const FinanciamentoCalc = () => {
             </div>
           </div>
 
-          {/* NOVO: Filtro de ordenação */}
-          <div className="flex items-center gap-2 bg-muted/30 p-3 rounded-lg">
-            <Filter className="w-4 h-4 text-purple-600" />
-            <span className="text-sm font-medium">Ordenar por:</span>
-            <div className="flex gap-1">
+          {/* Seletor de ordenação */}
+          <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg">
+            <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Ordenar por:</span>
+            <div className="flex gap-1 flex-wrap">
               {[
                 { value: "totalPago", label: "Menor Total Pago" },
                 { value: "primeiraParcela", label: "Menor Parcela" },
                 { value: "totalJuros", label: "Menor Juros" },
-                { value: "rendaExigida", label: "Menor Renda Exigida" }
+                { value: "rendaExigida", label: "Menor Renda Exigida" },
               ].map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setOrdenacao(opt.value as Ordenacao)}
-                  className={cn(
-                    "px-3 py-1 text-xs rounded-full transition-all",
-                    ordenacao === opt.value
-                      ? "bg-purple-600 text-white"
-                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  onClick={() => setOrdenarPor(opt.value as OrdenarPor)}
+                  className={cn("px-3 py-1 text-xs rounded-full transition-all",
+                    ordenarPor === opt.value
+                      ? "bg-[#7E22CE] text-white"
+                      : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300"
                   )}
                 >
                   {opt.label}
@@ -1144,7 +1212,7 @@ const FinanciamentoCalc = () => {
                   <p className="text-green-700">Até 80% da parcela mensal por até 12 meses seguidos</p>
                 </div>
               </div>
-              <p className="text-xs text-green-700">Válido em <strong>qualquer banco</strong> abaixo (e lei federal). Imóvel deve se enquadrar no SFH: residencial urbano, valor até R$ 2.250.000, sem outro financiamento ativo no SFH.</p>
+              <p className="text-xs text-green-700">Válido em <strong>qualquer banco</strong> abaixo (é lei federal). Imóvel deve se enquadrar no SFH: residencial urbano, valor até R$ 2.250.000, sem outro financiamento ativo no SFH.</p>
             </div>
           )}
           {temFgts === false && (
@@ -1158,7 +1226,7 @@ const FinanciamentoCalc = () => {
           )}
           <div className="space-y-3">
             {results.map((banco) => (
-              <BancoResultCard key={banco.bancoId} banco={banco} melhorSimulacaoId={melhorSimulacaoId} ordenacao={ordenacao} />
+              <BancoResultCard key={banco.bancoId} banco={banco} melhorSimulacaoId={melhorSimulacaoId} ordenarPor={ordenarPor} />
             ))}
           </div>
         </motion.div>

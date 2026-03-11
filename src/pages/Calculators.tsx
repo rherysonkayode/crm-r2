@@ -538,8 +538,8 @@ const FinanciamentoCalc = () => {
         if (temFgts && valor <= 500000) {
           linhasCaixa.push({
             nome: "Pró-Cotista",
-            taxa: 8.66,
-            ltv: 80,
+            taxa: banco.taxasProCotista?.sac || 8.66,
+            ltv: banco.ltvProCotista?.sac || 80,
             prazoMax: 420,
             condicao: true,
           });
@@ -548,8 +548,8 @@ const FinanciamentoCalc = () => {
         if (rendaMensal <= 12000 && valor <= 500000) {
           linhasCaixa.push({
             nome: "MCMV",
-            taxa: 10.0,
-            ltv: 80,
+            taxa: banco.taxasMCMV?.sac || 10.0,
+            ltv: banco.ltvMCMV?.sac || 80,
             prazoMax: 420,
             condicao: true,
           });
@@ -565,7 +565,7 @@ const FinanciamentoCalc = () => {
           });
           linhasCaixa.push({
             nome: "SBPE (Balcão)",
-            taxa: 11.49,
+            taxa: banco.taxas[tipoImovel]?.sac || 11.49,
             ltv: 80,
             prazoMax: 420,
             condicao: true,

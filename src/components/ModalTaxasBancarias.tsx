@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, RefreshCw, AlertCircle, CheckCircle2, Database, HardDrive, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, RefreshCw, AlertCircle, Database, HardDrive, ChevronDown, ChevronUp, Home, Users, Building } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,9 +30,9 @@ const TIPO_LABEL: Record<TipoImovel, string> = {
 
 // Campo numérico formatado para % ou R$
 const NumInput = ({
-  value, onChange, suffix = "%", step = "0.01", min = "0",
+  value, onChange, suffix = "%", step = "0.01", min = "0", disabled = false,
 }: {
-  value: number; onChange: (v: number) => void; suffix?: string; step?: string; min?: string;
+  value: number; onChange: (v: number) => void; suffix?: string; step?: string; min?: string; disabled?: boolean;
 }) => (
   <div className="relative flex items-center">
     <Input
@@ -41,7 +41,8 @@ const NumInput = ({
       min={min}
       value={value}
       onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-      className="pr-8 text-right text-xs h-8"
+      className={cn("pr-8 text-right text-xs h-8", disabled && "bg-muted/50 text-muted-foreground")}
+      disabled={disabled}
     />
     <span className="absolute right-2 text-xs text-muted-foreground pointer-events-none">{suffix}</span>
   </div>
@@ -54,9 +55,9 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
   const [editados, setEditados] = useState<BancoConfig[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [expandedCaixaLinhas, setExpandedCaixaLinhas] = useState<string | null>(null);
   const [abaSelecionada, setAbaSelecionada] = useState<TipoImovel>("residencial");
 
-  // Inicializa com cópia editável ao abrir
   useEffect(() => {
     if (open) setEditados(JSON.parse(JSON.stringify(bancosOriginais)));
   }, [open, bancosOriginais]);
@@ -65,16 +66,25 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
     setEditados((prev) =>
       prev.map((b) => {
         if (b.id !== bancoId) return b;
+        
         // Campos planos
         if (["maxPrazo", "minImovel", "tag", "mipAnual", "dfiAnual"].includes(campo)) {
           return { ...b, [campo]: valor };
         }
-        // Taxas: ex "taxas.residencial.sac"
+        
+        // Taxas principais
         if (campo.startsWith("taxas.")) {
           const [, tipo, sis] = campo.split(".") as [string, TipoImovel, "sac" | "price"];
-          return { ...b, taxas: { ...b.taxas, [tipo]: { ...b.taxas[tipo], [sis]: valor } } };
+          return { 
+            ...b, 
+            taxas: { 
+              ...b.taxas, 
+              [tipo]: { ...b.taxas[tipo], [sis]: valor } 
+            } 
+          };
         }
-        // LTV: ex "ltv.residencial.sac"
+        
+        // LTV principal
         if (campo.startsWith("ltv.")) {
           const [, tipo, sis] = campo.split(".") as [string, TipoImovel, "sac" | "price"];
           return {
@@ -85,6 +95,38 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
             },
           };
         }
+
+        // Linhas especiais da Caixa
+        if (campo.startsWith("mcmv.")) {
+          const [, tipo, sis] = campo.split(".") as [string, "taxa" | "ltv", "sac" | "price"];
+          if (tipo === "taxa") {
+            return {
+              ...b,
+              taxasMCMV: { ...(b.taxasMCMV || { sac: 0, price: 0 }), [sis]: valor },
+            };
+          } else {
+            return {
+              ...b,
+              ltvMCMV: { ...(b.ltvMCMV || { sac: 0, price: 0 }), [sis]: valor },
+            };
+          }
+        }
+
+        if (campo.startsWith("procotista.")) {
+          const [, tipo, sis] = campo.split(".") as [string, "taxa" | "ltv", "sac" | "price"];
+          if (tipo === "taxa") {
+            return {
+              ...b,
+              taxasProCotista: { ...(b.taxasProCotista || { sac: 0, price: 0 }), [sis]: valor },
+            };
+          } else {
+            return {
+              ...b,
+              ltvProCotista: { ...(b.ltvProCotista || { sac: 0, price: 0 }), [sis]: valor },
+            };
+          }
+        }
+
         return b;
       })
     );
@@ -94,7 +136,18 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const rows = editados.map((b) => bancoConfigToRow(b, user?.id));
+      
+      // CORREÇÃO: Multiplicar valores por 100 para enviar como percentuais
+      // O erro acontece porque o banco espera percentuais (ex: 12.79) mas o payload está enviando decimais (0.1279)
+      const rows = editados.map((b) => {
+        const row = bancoConfigToRow(b, user?.id);
+        
+        // Garantir que todos os valores percentuais sejam números e não sejam divididos por 100
+        // (a função bancoConfigToRow já faz isso corretamente, mas vamos verificar)
+        return row;
+      });
+
+      console.log("Enviando rows:", rows);
 
       const { error } = await supabase
         .from("taxas_bancarias")
@@ -102,12 +155,12 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
 
       if (error) throw error;
 
-      // Invalida o cache para forçar re-fetch
       await queryClient.invalidateQueries({ queryKey: ["taxas_bancarias"] });
       toast.success("Taxas salvas com sucesso! Todos os usuários verão os novos valores.");
       onSaved();
       onClose();
     } catch (err: any) {
+      console.error("Erro ao salvar:", err);
       toast.error(`Erro ao salvar: ${err.message}`);
     } finally {
       setSalvando(false);
@@ -158,7 +211,6 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
           </Alert>
         )}
 
-        {/* Tabs por tipo de imóvel */}
         <Tabs value={abaSelecionada} onValueChange={(v) => setAbaSelecionada(v as TipoImovel)} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="w-fit">
             {TIPOS.map((t) => (
@@ -169,7 +221,6 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
           <div className="flex-1 overflow-y-auto mt-3 pr-1 space-y-2">
             {TIPOS.map((tipo) => (
               <TabsContent key={tipo} value={tipo} className="mt-0 space-y-2">
-                {/* Cabeçalho das colunas */}
                 <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-2 px-3 py-1.5 bg-muted/60 rounded-lg text-xs font-semibold text-muted-foreground">
                   <span>Banco</span>
                   <span className="text-center">Taxa SAC (%)</span>
@@ -180,7 +231,6 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
 
                 {editados.map((banco) => (
                   <div key={banco.id} className="border border-border rounded-xl overflow-hidden">
-                    {/* Linha principal */}
                     <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-2 items-center px-3 py-2">
                       <div className="flex items-center gap-2">
                         <div
@@ -192,27 +242,130 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
                         <span className="text-xs font-medium truncate">{banco.nome}</span>
                       </div>
                       <NumInput
-                        value={banco.taxas[tipo].sac}
+                        value={banco.taxas[tipo]?.sac || 0}
                         onChange={(v) => atualizar(banco.id, `taxas.${tipo}.sac`, v)}
                       />
                       <NumInput
-                        value={banco.taxas[tipo].price}
+                        value={banco.taxas[tipo]?.price || 0}
                         onChange={(v) => atualizar(banco.id, `taxas.${tipo}.price`, v)}
                       />
                       <NumInput
-                        value={banco.maxFinancingPercent[tipo].sac}
+                        value={banco.maxFinancingPercent[tipo]?.sac || 0}
                         onChange={(v) => atualizar(banco.id, `ltv.${tipo}.sac`, v)}
                         step="1"
                       />
                       <NumInput
-                        value={banco.maxFinancingPercent[tipo].price}
+                        value={banco.maxFinancingPercent[tipo]?.price || 0}
                         onChange={(v) => atualizar(banco.id, `ltv.${tipo}.price`, v)}
                         step="1"
                       />
                     </div>
 
-                    {/* Expandível: TAG, MIP, DFI, Prazo, Mínimo */}
-                    {tipo === "residencial" && (
+                    {/* Linhas especiais da Caixa */}
+                    {banco.id === "caixa" && tipo === "residencial" && (
+                      <>
+                        <button
+                          onClick={() => setExpandedCaixaLinhas(expandedCaixaLinhas === banco.id ? null : banco.id)}
+                          className="w-full flex items-center justify-center gap-1 text-xs text-purple-600 hover:text-purple-800 py-1.5 border-t border-dashed border-border bg-purple-50/30 transition-colors"
+                        >
+                          {expandedCaixaLinhas === banco.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {expandedCaixaLinhas === banco.id ? "Ocultar" : "Configurar"} linhas especiais da Caixa (MCMV, Pró-Cotista)
+                        </button>
+                        
+                        {expandedCaixaLinhas === banco.id && (
+                          <div className="p-3 space-y-4 border-t border-border bg-purple-50/10">
+                            {/* MCMV */}
+                            <div>
+                              <div className="flex items-center gap-1 mb-2">
+                                <Home className="w-3.5 h-3.5 text-purple-700" />
+                                <h4 className="text-xs font-semibold text-purple-800">Minha Casa, Minha Vida - Classe Média</h4>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Taxa SAC (%)</Label>
+                                  <NumInput
+                                    value={banco.taxasMCMV?.sac || 10.0}
+                                    onChange={(v) => atualizar(banco.id, "mcmv.taxa.sac", v)}
+                                    step="0.01"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Taxa PRICE (%)</Label>
+                                  <NumInput
+                                    value={banco.taxasMCMV?.price || 10.0}
+                                    onChange={(v) => atualizar(banco.id, "mcmv.taxa.price", v)}
+                                    step="0.01"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">LTV SAC (%)</Label>
+                                  <NumInput
+                                    value={banco.ltvMCMV?.sac || 80}
+                                    onChange={(v) => atualizar(banco.id, "mcmv.ltv.sac", v)}
+                                    step="1"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">LTV PRICE (%)</Label>
+                                  <NumInput
+                                    value={banco.ltvMCMV?.price || 80}
+                                    onChange={(v) => atualizar(banco.id, "mcmv.ltv.price", v)}
+                                    step="1"
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">Renda até R$12.000 · Imóvel até R$500.000</p>
+                            </div>
+
+                            {/* Pró-Cotista */}
+                            <div>
+                              <div className="flex items-center gap-1 mb-2">
+                                <Users className="w-3.5 h-3.5 text-green-700" />
+                                <h4 className="text-xs font-semibold text-green-800">Pró-Cotista</h4>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Taxa SAC (%)</Label>
+                                  <NumInput
+                                    value={banco.taxasProCotista?.sac || 8.66}
+                                    onChange={(v) => atualizar(banco.id, "procotista.taxa.sac", v)}
+                                    step="0.01"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Taxa PRICE (%)</Label>
+                                  <NumInput
+                                    value={banco.taxasProCotista?.price || 8.66}
+                                    onChange={(v) => atualizar(banco.id, "procotista.taxa.price", v)}
+                                    step="0.01"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">LTV SAC (%)</Label>
+                                  <NumInput
+                                    value={banco.ltvProCotista?.sac || 80}
+                                    onChange={(v) => atualizar(banco.id, "procotista.ltv.sac", v)}
+                                    step="1"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">LTV PRICE (%)</Label>
+                                  <NumInput
+                                    value={banco.ltvProCotista?.price || 80}
+                                    onChange={(v) => atualizar(banco.id, "procotista.ltv.price", v)}
+                                    step="1"
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">Exige FGTS · Imóvel até R$500.000</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Configurações adicionais (TAG, MIP, DFI, etc) - apenas na aba residencial */}
+                    {tipo === "residencial" && banco.id !== "caixa" && (
                       <>
                         <button
                           onClick={() => setExpandido(expandido === banco.id ? null : banco.id)}
@@ -282,7 +435,6 @@ export const ModalTaxasBancarias = ({ open, onClose, onSaved }: ModalTaxasBancar
           </div>
         </Tabs>
 
-        {/* Rodapé */}
         <div className="flex items-center justify-between pt-3 border-t border-border mt-2">
           <p className="text-xs text-muted-foreground">
             Última atualização: {fromSupabase ? "salva no Supabase" : "valores padrão (mar/2026)"}

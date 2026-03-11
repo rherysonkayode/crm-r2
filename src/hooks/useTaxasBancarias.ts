@@ -33,7 +33,12 @@ export interface BancoConfig {
     comercial:   { price: number; sac: number };
     rural:       { price: number; sac: number };
   };
-  // Propriedades CrediMorar
+  // Linhas especiais da Caixa
+  taxasMCMV?: { sac: number; price: number };
+  ltvMCMV?: { sac: number; price: number };
+  taxasProCotista?: { sac: number; price: number };
+  ltvProCotista?: { sac: number; price: number };
+  
   regrasDetalhadas?: RegraDetalhada[];
   estadosNaoAtendidos?: string[];
   ordemSimulacao?: number;
@@ -41,14 +46,13 @@ export interface BancoConfig {
   desabilitada?: boolean;
 }
 
-// Mapeamento dos tipos de imóvel para IDs (CrediMorar)
 export const tipoParaId: Record<string, number> = {
   residencial: 0,
   comercial: 1,
   rural: 2,
 };
 
-// Fallback com dados da CrediMorar (convertidos)
+// Fallback com dados da CrediMorar
 const BANCOS_FALLBACK: BancoConfig[] = [
   {
     id: "bradesco",
@@ -75,44 +79,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
-    regrasDetalhadas: [
-      {
-        tipoImovelId: 0, // residencial padrão
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 0.01,
-        prazoMinimo: 121,
-        prazoMaximo: 420,
-        ltvMaximo: 80,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 3, // residencial especial (MCMV, etc.)
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 0.01,
-        prazoMinimo: 121,
-        prazoMaximo: 420,
-        ltvMaximo: 80,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 1, // comercial
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 0.01,
-        prazoMinimo: 121,
-        prazoMaximo: 240,
-        ltvMaximo: 70,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 2, // rural
-        valorMinimoImovel: 1072000,
-        valorMinimoFinanciamento: 750000,
-        prazoMinimo: 121,
-        prazoMaximo: 240,
-        ltvMaximo: 70,
-        maxDespesasPercent: 5,
-      },
-    ],
   },
   {
     id: "itau",
@@ -139,38 +105,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
-    regrasDetalhadas: [
-      {
-        tipoImovelId: 0,
-        valorMinimoImovel: 97561,
-        valorMinimoFinanciamento: 30000,
-        prazoMinimo: 12,
-        prazoMaximo: 420,
-        ltvMaximo: 90,
-        maxDespesasPercent: 5,
-        minDespesasPercent: 2,
-      },
-      {
-        tipoImovelId: 3,
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 30000,
-        prazoMinimo: 12,
-        prazoMaximo: 420,
-        ltvMaximo: 90,
-        maxDespesasPercent: 5,
-        minDespesasPercent: 2,
-      },
-      {
-        tipoImovelId: 1,
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 30000,
-        prazoMinimo: 12,
-        prazoMaximo: 240,
-        ltvMaximo: 90,
-        maxDespesasPercent: 5,
-        minDespesasPercent: 2,
-      },
-    ],
   },
   {
     id: "santander",
@@ -197,35 +131,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
-    regrasDetalhadas: [
-      {
-        tipoImovelId: 0,
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 60000,
-        prazoMinimo: 12,
-        prazoMaximo: 420,
-        ltvMaximo: 80,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 3,
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 60000,
-        prazoMinimo: 12,
-        prazoMaximo: 420,
-        ltvMaximo: 80,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 1,
-        valorMinimoImovel: 100000,
-        valorMinimoFinanciamento: 60000,
-        prazoMinimo: 12,
-        prazoMaximo: 360,
-        ltvMaximo: 70,
-        maxDespesasPercent: 5,
-      },
-    ],
   },
   {
     id: "caixa",
@@ -248,11 +153,15 @@ const BANCOS_FALLBACK: BancoConfig[] = [
       comercial:   { sac: 12.00, price: 12.00 },
       rural:       { sac: 11.50, price: 11.50 },
     },
+    // Linhas especiais da Caixa
+    taxasMCMV: { sac: 10.0, price: 10.0 },
+    ltvMCMV: { sac: 80, price: 80 },
+    taxasProCotista: { sac: 8.66, price: 8.66 },
+    ltvProCotista: { sac: 80, price: 80 },
     ordemSimulacao: 4,
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: [],
-    regrasDetalhadas: [], // As linhas especiais são tratadas diretamente no componente
   },
   {
     id: "bb",
@@ -305,35 +214,6 @@ const BANCOS_FALLBACK: BancoConfig[] = [
     selecionada: true,
     desabilitada: false,
     estadosNaoAtendidos: ["AC", "AM", "AP", "RO", "RR"],
-    regrasDetalhadas: [
-      {
-        tipoImovelId: 0,
-        valorMinimoImovel: 200000,
-        valorMinimoFinanciamento: 100000,
-        prazoMinimo: 12,
-        prazoMaximo: 420,
-        ltvMaximo: 75,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 3,
-        valorMinimoImovel: 200000,
-        valorMinimoFinanciamento: 100000,
-        prazoMinimo: 12,
-        prazoMaximo: 360,
-        ltvMaximo: 75,
-        maxDespesasPercent: 5,
-      },
-      {
-        tipoImovelId: 1,
-        valorMinimoImovel: 200000,
-        valorMinimoFinanciamento: 100000,
-        prazoMinimo: 12,
-        prazoMaximo: 240,
-        ltvMaximo: 70,
-        maxDespesasPercent: 5,
-      },
-    ],
   },
 ];
 
@@ -359,6 +239,12 @@ function rowToBancoConfig(row: any): BancoConfig {
       comercial:   { sac: Number(row.taxa_comercial_sac),   price: Number(row.taxa_comercial_price)   },
       rural:       { sac: Number(row.taxa_rural_sac),       price: Number(row.taxa_rural_price)       },
     },
+    // Linhas especiais da Caixa
+    taxasMCMV: row.taxa_mcmv_sac ? { sac: Number(row.taxa_mcmv_sac), price: Number(row.taxa_mcmv_price) } : undefined,
+    ltvMCMV: row.ltv_mcmv_sac ? { sac: Number(row.ltv_mcmv_sac), price: Number(row.ltv_mcmv_price) } : undefined,
+    taxasProCotista: row.taxa_procotista_sac ? { sac: Number(row.taxa_procotista_sac), price: Number(row.taxa_procotista_price) } : undefined,
+    ltvProCotista: row.ltv_procotista_sac ? { sac: Number(row.ltv_procotista_sac), price: Number(row.ltv_procotista_price) } : undefined,
+    
     regrasDetalhadas: row.regras_detalhadas ? JSON.parse(row.regras_detalhadas) : undefined,
     estadosNaoAtendidos: row.estados_nao_atendidos ? row.estados_nao_atendidos.split(',') : undefined,
     ordemSimulacao: row.ordem_simulacao,
@@ -394,7 +280,7 @@ export const useTaxasBancarias = () => {
 };
 
 export function bancoConfigToRow(banco: BancoConfig, userId?: string) {
-  return {
+  const row: any = {
     banco_id: banco.id,
     nome: banco.nome,
     sigla: banco.sigla,
@@ -417,6 +303,31 @@ export function bancoConfigToRow(banco: BancoConfig, userId?: string) {
     taxa_comercial_price:   banco.taxas.comercial.price,
     taxa_rural_sac:         banco.taxas.rural.sac,
     taxa_rural_price:       banco.taxas.rural.price,
-    ...(userId ? { updated_by: userId } : {}),
   };
+
+  // Linhas especiais da Caixa
+  if (banco.id === "caixa") {
+    if (banco.taxasMCMV) {
+      row.taxa_mcmv_sac = banco.taxasMCMV.sac;
+      row.taxa_mcmv_price = banco.taxasMCMV.price;
+    }
+    if (banco.ltvMCMV) {
+      row.ltv_mcmv_sac = banco.ltvMCMV.sac;
+      row.ltv_mcmv_price = banco.ltvMCMV.price;
+    }
+    if (banco.taxasProCotista) {
+      row.taxa_procotista_sac = banco.taxasProCotista.sac;
+      row.taxa_procotista_price = banco.taxasProCotista.price;
+    }
+    if (banco.ltvProCotista) {
+      row.ltv_procotista_sac = banco.ltvProCotista.sac;
+      row.ltv_procotista_price = banco.ltvProCotista.price;
+    }
+  }
+
+  if (userId) {
+    row.updated_by = userId;
+  }
+
+  return row;
 }

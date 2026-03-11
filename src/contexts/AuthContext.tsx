@@ -31,6 +31,7 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  profileLoading: boolean;   // <-- novo: true enquanto a query do perfil está rodando
   isCorretor: boolean;
   isImobiliaria: boolean;
   isAdmin: boolean;
@@ -45,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  const { data: profile, refetch } = useQuery({
+  const { data: profile, isFetching: profileLoading, refetch } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -54,10 +55,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .select('*')
         .eq('id', user.id)
         .single();
-      if (error) throw error;
+      // Se erro (ex: RLS bloqueou), retorna null em vez de lançar exceção
+      // Isso evita que a query fique em estado de erro silencioso infinito
+      if (error) {
+        console.warn('[AuthContext] Erro ao carregar perfil:', error.message);
+        return null;
+      }
       return data as Profile;
     },
     enabled: !!user?.id,
+    retry: 1,          // tenta só 1x em caso de erro (não fica em loop)
+    staleTime: 30000,  // 30s de cache
   });
 
   useEffect(() => {
@@ -88,15 +96,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isAdmin = profile?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile: profile || null, 
-      loading, 
-      isCorretor, 
-      isImobiliaria, 
-      isAdmin, 
+    <AuthContext.Provider value={{
+      user,
+      profile: profile || null,
+      loading,
+      profileLoading,
+      isCorretor,
+      isImobiliaria,
+      isAdmin,
       signOut,
-      refreshProfile 
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>

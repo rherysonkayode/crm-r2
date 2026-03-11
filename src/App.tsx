@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,22 +33,47 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, profileLoading } = useAuth();
   const location = useLocation();
+  const [profileTimeout, setProfileTimeout] = useState(false);
 
+  // Timeout de segurança: se o perfil demorar mais de 3s, para de bloquear
+  useEffect(() => {
+    if (!loading && user && !profile && profileLoading) {
+      const t = setTimeout(() => setProfileTimeout(true), 3000);
+      return () => clearTimeout(t);
+    }
+    // Se o perfil carregou (mesmo que null/erro), cancela o timeout
+    if (profile || !profileLoading) {
+      setProfileTimeout(false);
+    }
+  }, [loading, user, profile, profileLoading]);
+
+  // Aguarda sessão do auth
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+    <div className="flex items-center justify-center min-h-screen text-muted-foreground text-sm">
       Carregando...
     </div>
   );
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (!profile) return (
-    <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+  // Aguarda perfil SOMENTE se ainda está carregando E não deu timeout
+  if (profileLoading && !profileTimeout) return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-muted-foreground text-sm">
+      <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
       Carregando perfil...
     </div>
   );
+
+  // Perfil não existe após loading terminar ou timeout:
+  // deixa acessar /subscription, bloqueia o resto
+  if (!profile) {
+    if (location.pathname !== "/subscription") {
+      return <Navigate to="/subscription" replace />;
+    }
+    return <>{children}</>;
+  }
 
   const trialEnd = profile.trial_end ? new Date(profile.trial_end) : null;
   const now = new Date();

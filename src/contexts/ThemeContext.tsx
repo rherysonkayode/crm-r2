@@ -1,4 +1,3 @@
-// src/contexts/ThemeContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -19,12 +18,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // Carregar tema do usuário ao iniciar
   useEffect(() => {
     loadUserTheme();
   }, [user]);
 
-  // Aplicar tema ao HTML quando mudar
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
@@ -32,7 +29,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const loadUserTheme = async () => {
     try {
       if (user) {
-        // Buscar tema do usuário no banco
         const { data: profile } = await supabase
           .from('profiles')
           .select('theme')
@@ -42,17 +38,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (profile?.theme) {
           setThemeState(profile.theme as Theme);
         } else {
-          // Se não tiver tema salvo, usar preferência do sistema
           const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           setThemeState(systemPrefersDark ? 'dark' : 'light');
         }
       } else {
-        // Usuário não logado: tentar do localStorage
         const savedTheme = localStorage.getItem('theme') as Theme;
         if (savedTheme) {
           setThemeState(savedTheme);
         } else {
-          // Detectar preferência do sistema
           const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           setThemeState(systemPrefersDark ? 'dark' : 'light');
         }
@@ -65,14 +58,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const applyTheme = (newTheme: Theme) => {
-    // Aplicar classe no HTML
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-
-    // Salvar no localStorage como fallback
     localStorage.setItem('theme', newTheme);
   };
 
@@ -80,7 +70,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(newTheme);
     applyTheme(newTheme);
 
-    // Salvar no banco se usuário estiver logado
     if (user) {
       await supabase
         .from('profiles')

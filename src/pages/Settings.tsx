@@ -2,12 +2,14 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTheme } from "@/contexts/ThemeContext"; // 👈 NOVO IMPORT
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ShieldAlert, User, Lock, Mail, Bell, Building2, Users, Camera, Check, Eye, EyeOff } from "lucide-react";
+import { ShieldAlert, User, Lock, Mail, Bell, Building2, Users, Camera, Check, Eye, EyeOff, Moon, Sun, Palette } from "lucide-react"; // 👈 NOVOS ÍCONES
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // 👈 NOVO COMPONENTE
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -22,13 +24,16 @@ const tabs = [
   { id: "seguranca", label: "Seguranca", icon: Lock },
   { id: "permissoes", label: "Permissoes", icon: ShieldAlert },
   { id: "plano", label: "Plano", icon: Building2 },
+  { id: "aparencia", label: "Aparencia", icon: Palette }, // 👈 NOVA ABA
 ];
 
 const Settings = () => {
   const { profile, isCorretor, isImobiliaria } = useAuth();
   const { canCreateProperties, canManageUsers, canViewAllLeads } = usePermissions();
+  const { theme, setTheme } = useTheme(); // 👈 HOOK DO TEMA
 
   const [activeTab, setActiveTab] = useState("perfil");
+  const [selectedTheme, setSelectedTheme] = useState(theme); // 👈 ESTADO PARA O TEMA
 
   // Perfil
   const [fullName, setFullName] = useState(profile?.full_name || "");
@@ -162,6 +167,12 @@ const Settings = () => {
     } finally {
       setSavingEmail(false);
     }
+  };
+
+  // 👈 NOVA FUNÇÃO PARA SALVAR TEMA
+  const handleSaveTheme = () => {
+    setTheme(selectedTheme);
+    toast.success("Tema atualizado com sucesso!");
   };
 
   return (
@@ -387,6 +398,79 @@ const Settings = () => {
                       Periodo de teste ate: <strong>{new Date(profile.trial_end).toLocaleDateString("pt-BR")}</strong>
                     </p>
                   )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* 👈 NOVA ABA APARENCIA */}
+            {activeTab === "aparencia" && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+                  <h2 className="font-semibold flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-[#7E22CE]" /> Aparencia do sistema
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Escolha como voce prefere visualizar o CRM.</p>
+                  
+                  <div className="space-y-4 pt-2">
+                    <RadioGroup 
+                      value={selectedTheme} 
+                      onValueChange={(value: "light" | "dark") => setSelectedTheme(value)}
+                      className="grid grid-cols-3 gap-4"
+                    >
+                      <div>
+                        <RadioGroupItem value="light" id="light" className="peer sr-only" />
+                        <Label
+                          htmlFor="light"
+                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                        >
+                          <Sun className="mb-3 h-6 w-6" />
+                          <span className="text-sm font-medium">Claro</span>
+                          {selectedTheme === "light" && (
+                            <Check className="absolute top-2 right-2 h-4 w-4 text-primary" />
+                          )}
+                        </Label>
+                      </div>
+                      
+                      <div>
+                        <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
+                        <Label
+                          htmlFor="dark"
+                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                        >
+                          <Moon className="mb-3 h-6 w-6" />
+                          <span className="text-sm font-medium">Escuro</span>
+                          {selectedTheme === "dark" && (
+                            <Check className="absolute top-2 right-2 h-4 w-4 text-primary" />
+                          )}
+                        </Label>
+                      </div>
+
+                      <div>
+                        <RadioGroupItem value="system" id="system" className="peer sr-only" />
+                        <Label
+                          htmlFor="system"
+                          className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                          onClick={() => {
+                            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            setSelectedTheme(systemPrefersDark ? 'dark' : 'light');
+                          }}
+                        >
+                          <div className="flex mb-3 gap-1">
+                            <Sun className="h-5 w-5" />
+                            <Moon className="h-5 w-5" />
+                          </div>
+                          <span className="text-sm font-medium">Sistema</span>
+                          {selectedTheme === "light" || selectedTheme === "dark" ? null : (
+                            <Check className="absolute top-2 right-2 h-4 w-4 text-primary" />
+                          )}
+                        </Label>
+                      </div>
+                    </RadioGroup>
+
+                    <Button onClick={handleSaveTheme} className="bg-[#7E22CE] hover:bg-purple-700 mt-4">
+                      Salvar preferencia de tema
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             )}

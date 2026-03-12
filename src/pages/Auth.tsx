@@ -49,10 +49,8 @@ const isValidCPF = (cpf: string) => {
   const clean = cpf.replace(/\D/g, "");
   if (clean.length !== 11) return false;
   
-  // Verifica se todos os dígitos são iguais
   if (/^(\d)\1+$/.test(clean)) return false;
   
-  // Validação dos dígitos verificadores
   let sum = 0;
   for (let i = 0; i < 9; i++) {
     sum += parseInt(clean.charAt(i)) * (10 - i);
@@ -76,10 +74,8 @@ const isValidCNPJ = (cnpj: string) => {
   const clean = cnpj.replace(/\D/g, "");
   if (clean.length !== 14) return false;
   
-  // Verifica se todos os dígitos são iguais
   if (/^(\d)\1+$/.test(clean)) return false;
   
-  // Validação do primeiro dígito verificador
   let size = clean.length - 2;
   let numbers = clean.substring(0, size);
   const digits = clean.substring(size);
@@ -94,7 +90,6 @@ const isValidCNPJ = (cnpj: string) => {
   let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
   if (result !== parseInt(digits.charAt(0))) return false;
   
-  // Validação do segundo dígito verificador
   size = size + 1;
   numbers = clean.substring(0, size);
   sum = 0;
@@ -122,7 +117,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false); // <-- ESTADO MOVIDO PARA CÁ
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -171,6 +166,9 @@ const Auth = () => {
         .maybeSingle();
       
       if (error) {
+        if (error.code === 'PGRST116') {
+          return false;
+        }
         console.error("Erro ao verificar CPF/CNPJ:", error);
         return false;
       }
@@ -182,10 +180,32 @@ const Auth = () => {
     }
   };
 
-  const checkPhoneExists = async (phoneToCheck: string) => {
+  const checkPhoneExists = async (phoneToCheck: string): Promise<boolean> => {
+    if (!phoneToCheck) return false;
+    
     const clean = phoneToCheck.replace(/\D/g, "");
-    const { data } = await supabase.from("profiles").select("id").eq("phone", clean).maybeSingle();
-    return !!data;
+    if (clean.length < 10) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("phone", clean)
+        .maybeSingle();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return false;
+        }
+        console.error("Erro ao verificar telefone:", error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.error("Erro na verificação:", error);
+      return false;
+    }
   };
 
   const checkEmailExists = async (emailToCheck: string) => {
@@ -244,16 +264,22 @@ const Auth = () => {
       
       setLoading(true);
       try {
-        // Verificar telefone
-        const phoneExists = await checkPhoneExists(phone);
-        if (phoneExists) { 
-          toast.error("Este celular já está cadastrado. Use outro número."); 
-          setLoading(false); 
-          return; 
+        // ===== LIMPAR E NORMALIZAR OS DADOS =====
+        const cpfToCheck = cpf?.trim() || null;
+        const phoneToCheck = phone?.trim() || null;
+        const docToCheck = accountType === "corretor" ? cpfToCheck : (docValue?.trim() || null);
+        
+        // Verificar telefone (apenas se foi preenchido)
+        if (phoneToCheck) {
+          const phoneExists = await checkPhoneExists(phoneToCheck);
+          if (phoneExists) { 
+            toast.error("Este celular já está cadastrado. Use outro número."); 
+            setLoading(false); 
+            return; 
+          }
         }
         
-        // Verificar CPF/CNPJ
-        const docToCheck = accountType === "corretor" ? cpf : docValue;
+        // Verificar CPF/CNPJ (apenas se foi preenchido)
         if (docToCheck) {
           // Validação de formato primeiro
           if (accountType === "corretor") {
@@ -284,14 +310,14 @@ const Auth = () => {
           }
         }
         
-        // Validações de campo obrigatório
-        if (accountType === "corretor" && (!cpf || cpf.replace(/\D/g, "").length < 11)) { 
+        // Validações de campo obrigatório (agora considerando null)
+        if (accountType === "corretor" && !cpfToCheck) { 
           toast.error("CPF obrigatório"); 
           setLoading(false); 
           return; 
         }
         
-        if (accountType === "imobiliaria" && (!companyName || !docValue)) { 
+        if (accountType === "imobiliaria" && (!companyName || !docToCheck)) { 
           toast.error("Preencha os dados da imobiliária"); 
           setLoading(false); 
           return; 
@@ -319,13 +345,17 @@ const Auth = () => {
             emailRedirectTo: "https://crm-r2.vercel.app/confirm-email",
             data: {
               full_name: fullName,
-              phone,
+              phone: phone || null,
               company_name: accountType === "imobiliaria" ? companyName : fullName,
               role: accountType,
               area_atuacao: areaAtuacao,
               plan: selectedPlan,
-              cpf: accountType === "corretor" ? cpf : (docType === "cpf" ? docValue : null),
-              cnpj: accountType === "imobiliaria" && docType === "cnpj" ? docValue : null,
+              cpf: accountType === "corretor" 
+                ? (cpf || null) 
+                : (docType === "cpf" ? (docValue || null) : null),
+              cnpj: accountType === "imobiliaria" && docType === "cnpj" 
+                ? (docValue || null) 
+                : null,
             },
           },
         });
@@ -535,7 +565,6 @@ const Auth = () => {
                                 required 
                               />
                             </div>
-                            {/* FEEDBACK VISUAL PARA CPF */}
                             {cpf && (
                               <p className={cn(
                                 "text-xs mt-1",
@@ -577,7 +606,6 @@ const Auth = () => {
                                   required 
                                 />
                               </div>
-                              {/* FEEDBACK VISUAL PARA CPF/CNPJ */}
                               {docValue && (
                                 <p className={cn(
                                   "text-xs mt-1",

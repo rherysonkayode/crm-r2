@@ -151,7 +151,7 @@ const Auth = () => {
     setFullName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, ""));
   };
 
-  // ===== FUNÇÕES DE VERIFICAÇÃO NO BANCO =====
+  // ===== FUNÇÕES DE VERIFICAÇÃO NO BANCO (ÚNICAS) =====
   const checkCpfCnpjExists = async (doc: string): Promise<boolean> => {
     if (!doc) return false;
     
@@ -166,10 +166,7 @@ const Auth = () => {
         .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          return false;
-        }
-        console.error("Erro ao verificar CPF/CNPJ:", error);
+        console.error("Erro ao verificar documento:", error);
         return false;
       }
       
@@ -194,9 +191,6 @@ const Auth = () => {
         .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          return false;
-        }
         console.error("Erro ao verificar telefone:", error);
         return false;
       }
@@ -254,7 +248,6 @@ const Auth = () => {
       return;
     }
 
-    // ===== BLOCO DE VALIDAÇÃO MELHORADO =====
     if (!isLogin && step === 2) {
       if (!accountType) { toast.error("Selecione seu tipo de perfil"); return; }
       if (!selectedPlan) { toast.error("Selecione um plano para começar"); return; }
@@ -265,62 +258,66 @@ const Auth = () => {
       setLoading(true);
       try {
         // ===== LIMPAR E NORMALIZAR OS DADOS =====
-        const cpfToCheck = cpf?.trim() || null;
-        const phoneToCheck = phone?.trim() || null;
-        const docToCheck = accountType === "corretor" ? cpfToCheck : (docValue?.trim() || null);
+        const cpfToCheck = accountType === "corretor" 
+          ? (cpf?.replace(/\D/g, "") || null) 
+          : (docType === "cpf" ? (docValue?.replace(/\D/g, "") || null) : null);
         
-        // Verificar telefone (apenas se foi preenchido)
+        const cnpjToCheck = accountType === "imobiliaria" && docType === "cnpj" 
+          ? (docValue?.replace(/\D/g, "") || null) 
+          : null;
+        
+        const phoneToCheck = phone?.replace(/\D/g, "") || null;
+        
+        console.log("🔍 VERIFICANDO DUPLICIDADE:", {
+          cpfToCheck,
+          cnpjToCheck,
+          phoneToCheck
+        });
+        
+        // Verificar telefone (se foi preenchido)
         if (phoneToCheck) {
           const phoneExists = await checkPhoneExists(phoneToCheck);
           if (phoneExists) { 
-            toast.error("Este celular já está cadastrado. Use outro número."); 
+            toast.error("❌ Este celular já está cadastrado. Use outro número."); 
             setLoading(false); 
             return; 
           }
         }
         
-        // Verificar CPF/CNPJ (apenas se foi preenchido)
-        if (docToCheck) {
-          // Validação de formato primeiro
-          if (accountType === "corretor") {
-            if (!isValidCPF(docToCheck)) {
-              toast.error("CPF inválido. Verifique o número digitado.");
-              setLoading(false);
-              return;
-            }
-          } else {
-            if (docType === "cpf" && !isValidCPF(docToCheck)) {
-              toast.error("CPF do gestor inválido.");
-              setLoading(false);
-              return;
-            }
-            if (docType === "cnpj" && !isValidCNPJ(docToCheck)) {
-              toast.error("CNPJ inválido. Verifique o número digitado.");
-              setLoading(false);
-              return;
-            }
+        // Verificar CPF (se for corretor)
+        if (accountType === "corretor" && cpfToCheck) {
+          // Validar formato do CPF
+          if (!isValidCPF(cpfToCheck)) {
+            toast.error("❌ CPF inválido. Verifique o número digitado.");
+            setLoading(false);
+            return;
           }
           
-          // Depois verifica duplicidade no banco
-          const docExists = await checkCpfCnpjExists(docToCheck);
-          if (docExists) { 
-            toast.error(`Este ${accountType === "corretor" ? "CPF" : docType === "cpf" ? "CPF" : "CNPJ"} já está cadastrado.`); 
+          // Verificar se CPF já existe
+          const cpfExists = await checkCpfCnpjExists(cpfToCheck);
+          if (cpfExists) { 
+            toast.error("❌ Este CPF já está cadastrado em outra conta."); 
             setLoading(false); 
             return; 
           }
         }
         
-        // Validações de campo obrigatório (agora considerando null)
-        if (accountType === "corretor" && !cpfToCheck) { 
-          toast.error("CPF obrigatório"); 
-          setLoading(false); 
-          return; 
-        }
-        
-        if (accountType === "imobiliaria" && (!companyName || !docToCheck)) { 
-          toast.error("Preencha os dados da imobiliária"); 
-          setLoading(false); 
-          return; 
+        // Verificar CNPJ (se for imobiliária)
+        if (accountType === "imobiliaria" && cnpjToCheck) {
+          // Validar formato do CNPJ
+          if (!isValidCNPJ(cnpjToCheck)) {
+            toast.error("❌ CNPJ inválido. Verifique o número digitado.");
+            setLoading(false);
+            return;
+          }
+          
+          // Verificar se CNPJ já existe (na coluna cpf mesmo!)
+          const cnpjExists = await checkCpfCnpjExists(cnpjToCheck);
+          if (cnpjExists) { 
+            toast.error("❌ Este CNPJ já está cadastrado em outra conta."); 
+            setLoading(false); 
+            return; 
+          }
         }
         
         // Se passou por todas as validações, vai para o passo 3
@@ -337,6 +334,36 @@ const Auth = () => {
     if (!isLogin && step === 3) {
       if (!acceptTerms) { toast.error("Aceite os Termos de Uso"); return; }
       setLoading(true);
+      
+      // ===== LOG DETALHADO DO QUE SERÁ ENVIADO =====
+      const cpfParaEnviar = accountType === "corretor" 
+        ? (cpf?.replace(/\D/g, "") || null) 
+        : (docValue?.replace(/\D/g, "") || null);
+      
+      const telefoneParaEnviar = phone?.replace(/\D/g, "") || null;
+      
+      console.log("🚀 FRONTEND - DADOS DO STEP 3:", {
+        fullName,
+        phone_bruto: phone,
+        cpf_bruto: cpf,
+        docType,
+        docValue_bruto: docValue,
+        phone_limpo: telefoneParaEnviar,
+        cpf_limpo: cpfParaEnviar,
+        role: accountType,
+        area_atuacao: areaAtuacao,
+        plan: selectedPlan,
+        user_metadata: {
+          full_name: fullName,
+          phone: telefoneParaEnviar,
+          company_name: accountType === "imobiliaria" ? companyName : fullName,
+          role: accountType,
+          area_atuacao: areaAtuacao,
+          plan: selectedPlan,
+          cpf: cpfParaEnviar,
+        }
+      });
+
       try {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -345,17 +372,12 @@ const Auth = () => {
             emailRedirectTo: "https://crm-r2.vercel.app/confirm-email",
             data: {
               full_name: fullName,
-              phone: phone || null,
+              phone: telefoneParaEnviar,
               company_name: accountType === "imobiliaria" ? companyName : fullName,
               role: accountType,
               area_atuacao: areaAtuacao,
               plan: selectedPlan,
-              cpf: accountType === "corretor" 
-                ? (cpf || null) 
-                : (docType === "cpf" ? (docValue || null) : null),
-              cnpj: accountType === "imobiliaria" && docType === "cnpj" 
-                ? (docValue || null) 
-                : null,
+              cpf: cpfParaEnviar,
             },
           },
         });
@@ -363,10 +385,15 @@ const Auth = () => {
         if (error) throw error;
 
         if (data.user) {
+          console.log("✅ FRONTEND - USUÁRIO CRIADO NO AUTH:", {
+            user_id: data.user.id,
+            metadata_enviado: data.user.user_metadata
+          });
+
           const { data: sessionData } = await supabase.auth.getSession();
           const authToken = sessionData.session?.access_token ?? ANON_KEY;
 
-          await fetch(`${SUPABASE_URL}/functions/v1/create-profile`, {
+          const response = await fetch(`${SUPABASE_URL}/functions/v1/create-profile`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -375,12 +402,45 @@ const Auth = () => {
             },
             body: JSON.stringify({ user: data.user }),
           });
+
+          // 👇 VER O QUE VEIO DA EDGE FUNCTION
+          const responseText = await response.text();
+          console.log("📦 RESPOSTA CRUA DA EDGE FUNCTION:", responseText);
+
+          let result;
+          try {
+            result = JSON.parse(responseText);
+          } catch (e) {
+            console.error("❌ ERRO AO PARSEAR RESPOSTA:", responseText);
+            throw new Error("Erro na comunicação com o servidor");
+          }
+
+          console.log("📦 RESPOSTA PARSEDA:", result);
+
+          if (!response.ok) {
+            let mensagemErro = result.error || "Erro ao criar perfil";
+            
+            // Se for erro de duplicata
+            if (result.error?.includes("duplicate key") || result.error?.includes("already exists")) {
+              if (result.error?.includes("cpf")) {
+                mensagemErro = "❌ Este CPF/CNPJ já está cadastrado em outra conta.";
+              } else if (result.error?.includes("phone")) {
+                mensagemErro = "❌ Este telefone já está cadastrado em outra conta.";
+              }
+            }
+            
+            throw new Error(mensagemErro);
+          }
         }
 
         toast.success("Cadastro realizado! Verifique seu e-mail para confirmar sua conta.");
         resetAllStates();
         setIsLogin(true);
       } catch (error: any) {
+        console.error("❌ FRONTEND - ERRO NO CADASTRO:", {
+          message: error.message,
+          error: error
+        });
         toast.error(error.message);
       } finally {
         setLoading(false);

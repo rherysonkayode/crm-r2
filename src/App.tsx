@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext"; // 👈 IMPORT ADICIONADO
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -112,35 +113,37 @@ const App = () => (
       <Sonner />
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/confirmar-email" element={<ConfirmEmail />} />
-            <Route path="/termos" element={<Termos />} />
-            <Route path="/privacidade" element={<Privacidade />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/convite/:token" element={<Convite />} />
+          <ThemeProvider> {/* 👈 THEME PROVIDER ENVOLVENDO AS ROTAS */}
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+              <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/confirmar-email" element={<ConfirmEmail />} />
+              <Route path="/termos" element={<Termos />} />
+              <Route path="/privacidade" element={<Privacidade />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/convite/:token" element={<Convite />} />
 
-            <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-            <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
-            <Route path="/funnel" element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
-            <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-            <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
-            <Route path="/team/:id" element={<ProtectedRoute><TeamDetails /></ProtectedRoute>} />
-            <Route path="/deal/:id" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
-            <Route path="/deal/:id/commissions" element={<ProtectedRoute><DealCommissionsEdit /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/calculators" element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
-            <Route path="/advertise" element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
+              <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+              <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
+              <Route path="/funnel" element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+              <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+              <Route path="/team/:id" element={<ProtectedRoute><TeamDetails /></ProtectedRoute>} />
+              <Route path="/deal/:id" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
+              <Route path="/deal/:id/commissions" element={<ProtectedRoute><DealCommissionsEdit /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/calculators" element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
+              <Route path="/advertise" element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <ChatBot />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <ChatBot />
+          </ThemeProvider> {/* 👈 FECHA THEME PROVIDER */}
         </AuthProvider>
       </HashRouter>
     </TooltipProvider>

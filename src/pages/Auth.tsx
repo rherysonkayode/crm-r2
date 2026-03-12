@@ -44,6 +44,73 @@ const formatCNPJ = (v: string) => {
   return v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})/, "$1.$2.$3/$4-$5").slice(0, 18);
 };
 
+// ===== FUNÇÕES DE VALIDAÇÃO =====
+const isValidCPF = (cpf: string) => {
+  const clean = cpf.replace(/\D/g, "");
+  if (clean.length !== 11) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(clean)) return false;
+  
+  // Validação dos dígitos verificadores
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(clean.charAt(i)) * (10 - i);
+  }
+  let rev = 11 - (sum % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(clean.charAt(9))) return false;
+  
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(clean.charAt(i)) * (11 - i);
+  }
+  rev = 11 - (sum % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(clean.charAt(10))) return false;
+  
+  return true;
+};
+
+const isValidCNPJ = (cnpj: string) => {
+  const clean = cnpj.replace(/\D/g, "");
+  if (clean.length !== 14) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(clean)) return false;
+  
+  // Validação do primeiro dígito verificador
+  let size = clean.length - 2;
+  let numbers = clean.substring(0, size);
+  const digits = clean.substring(size);
+  let sum = 0;
+  let pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(0))) return false;
+  
+  // Validação do segundo dígito verificador
+  size = size + 1;
+  numbers = clean.substring(0, size);
+  sum = 0;
+  pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(1))) return false;
+  
+  return true;
+};
+
 const SUPABASE_URL = "https://ecmahLxwttfeatvpxwng.supabase.co";
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
@@ -55,6 +122,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false); // <-- ESTADO MOVIDO PARA CÁ
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -69,7 +137,6 @@ const Auth = () => {
   const [step, setStep] = useState(1);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false);
   const navigate = useNavigate();
 
   const passwordRequirements = [
@@ -89,10 +156,30 @@ const Auth = () => {
     setFullName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, ""));
   };
 
-  const checkCpfCnpjExists = async (doc: string) => {
+  // ===== FUNÇÕES DE VERIFICAÇÃO NO BANCO =====
+  const checkCpfCnpjExists = async (doc: string): Promise<boolean> => {
+    if (!doc) return false;
+    
     const clean = doc.replace(/\D/g, "");
-    const { data } = await supabase.from("profiles").select("id").eq("cpf", clean).maybeSingle();
-    return !!data;
+    if (clean.length < 11) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("cpf", clean)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Erro ao verificar CPF/CNPJ:", error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.error("Erro na verificação:", error);
+      return false;
+    }
   };
 
   const checkPhoneExists = async (phoneToCheck: string) => {
@@ -147,29 +234,77 @@ const Auth = () => {
       return;
     }
 
+    // ===== BLOCO DE VALIDAÇÃO MELHORADO =====
     if (!isLogin && step === 2) {
       if (!accountType) { toast.error("Selecione seu tipo de perfil"); return; }
       if (!selectedPlan) { toast.error("Selecione um plano para começar"); return; }
       if (!fullName) { toast.error("Informe seu nome completo"); return; }
       if (!/^[a-zA-Z\u00C0-\u00FF\s]+$/.test(fullName)) { toast.error("Nome deve conter apenas letras"); return; }
       if (!phone || phone.replace(/\D/g, "").length < 11) { toast.error("Informe um celular válido com DDD"); return; }
+      
       setLoading(true);
       try {
+        // Verificar telefone
         const phoneExists = await checkPhoneExists(phone);
-        if (phoneExists) { toast.error("Este celular já está cadastrado. Use outro número."); setLoading(false); return; }
+        if (phoneExists) { 
+          toast.error("Este celular já está cadastrado. Use outro número."); 
+          setLoading(false); 
+          return; 
+        }
+        
+        // Verificar CPF/CNPJ
         const docToCheck = accountType === "corretor" ? cpf : docValue;
         if (docToCheck) {
+          // Validação de formato primeiro
+          if (accountType === "corretor") {
+            if (!isValidCPF(docToCheck)) {
+              toast.error("CPF inválido. Verifique o número digitado.");
+              setLoading(false);
+              return;
+            }
+          } else {
+            if (docType === "cpf" && !isValidCPF(docToCheck)) {
+              toast.error("CPF do gestor inválido.");
+              setLoading(false);
+              return;
+            }
+            if (docType === "cnpj" && !isValidCNPJ(docToCheck)) {
+              toast.error("CNPJ inválido. Verifique o número digitado.");
+              setLoading(false);
+              return;
+            }
+          }
+          
+          // Depois verifica duplicidade no banco
           const docExists = await checkCpfCnpjExists(docToCheck);
-          if (docExists) { toast.error("Este CPF/CNPJ já está cadastrado."); setLoading(false); return; }
+          if (docExists) { 
+            toast.error(`Este ${accountType === "corretor" ? "CPF" : docType === "cpf" ? "CPF" : "CNPJ"} já está cadastrado.`); 
+            setLoading(false); 
+            return; 
+          }
         }
+        
+        // Validações de campo obrigatório
+        if (accountType === "corretor" && (!cpf || cpf.replace(/\D/g, "").length < 11)) { 
+          toast.error("CPF obrigatório"); 
+          setLoading(false); 
+          return; 
+        }
+        
+        if (accountType === "imobiliaria" && (!companyName || !docValue)) { 
+          toast.error("Preencha os dados da imobiliária"); 
+          setLoading(false); 
+          return; 
+        }
+        
+        // Se passou por todas as validações, vai para o passo 3
+        setStep(3);
       } catch (err) {
-        console.error(err);
+        console.error("Erro na validação:", err);
+        toast.error("Erro ao verificar dados. Tente novamente.");
       } finally {
         setLoading(false);
       }
-      if (accountType === "corretor" && (!cpf || cpf.length < 14)) { toast.error("CPF obrigatório"); return; }
-      if (accountType === "imobiliaria" && (!companyName || !docValue)) { toast.error("Preencha os dados da imobiliária"); return; }
-      setStep(3);
       return;
     }
 
@@ -389,8 +524,26 @@ const Auth = () => {
                             <Label>CPF</Label>
                             <div className="relative">
                               <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                              <Input value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="pl-10 py-6 rounded-2xl" placeholder="000.000.000-00" required />
+                              <Input 
+                                value={cpf} 
+                                onChange={(e) => setCpf(formatCPF(e.target.value))} 
+                                className={cn(
+                                  "pl-10 py-6 rounded-2xl",
+                                  cpf && !isValidCPF(cpf) && "border-red-500 focus-visible:ring-red-500"
+                                )} 
+                                placeholder="000.000.000-00" 
+                                required 
+                              />
                             </div>
+                            {/* FEEDBACK VISUAL PARA CPF */}
+                            {cpf && (
+                              <p className={cn(
+                                "text-xs mt-1",
+                                isValidCPF(cpf) ? "text-green-600" : "text-red-500"
+                              )}>
+                                {isValidCPF(cpf) ? "✓ CPF válido" : "✗ CPF inválido"}
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -412,8 +565,31 @@ const Auth = () => {
                               </div>
                               <div className="relative">
                                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input value={docValue} onChange={(e) => setDocValue(docType === "cpf" ? formatCPF(e.target.value) : formatCNPJ(e.target.value))} className="pl-10 py-6 rounded-2xl bg-white" placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"} required />
+                                <Input 
+                                  value={docValue} 
+                                  onChange={(e) => setDocValue(docType === "cpf" ? formatCPF(e.target.value) : formatCNPJ(e.target.value))} 
+                                  className={cn(
+                                    "pl-10 py-6 rounded-2xl bg-white",
+                                    docValue && docType === "cpf" && !isValidCPF(docValue) && "border-red-500",
+                                    docValue && docType === "cnpj" && !isValidCNPJ(docValue) && "border-red-500"
+                                  )} 
+                                  placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"} 
+                                  required 
+                                />
                               </div>
+                              {/* FEEDBACK VISUAL PARA CPF/CNPJ */}
+                              {docValue && (
+                                <p className={cn(
+                                  "text-xs mt-1",
+                                  (docType === "cpf" && isValidCPF(docValue)) || (docType === "cnpj" && isValidCNPJ(docValue)) 
+                                    ? "text-green-600" 
+                                    : "text-red-500"
+                                )}>
+                                  {(docType === "cpf" && isValidCPF(docValue)) || (docType === "cnpj" && isValidCNPJ(docValue))
+                                    ? `✓ ${docType === "cpf" ? "CPF" : "CNPJ"} válido`
+                                    : `✗ ${docType === "cpf" ? "CPF" : "CNPJ"} inválido`}
+                                </p>
+                              )}
                             </div>
                           </>
                         )}

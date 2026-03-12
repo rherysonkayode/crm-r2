@@ -151,7 +151,7 @@ const Auth = () => {
     setFullName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, ""));
   };
 
-  // ===== FUNÇÕES DE VERIFICAÇÃO NO BANCO (ÚNICAS) =====
+  // ===== FUNÇÕES DE VERIFICAÇÃO NO BANCO =====
   const checkCpfCnpjExists = async (doc: string): Promise<boolean> => {
     if (!doc) return false;
     
@@ -159,24 +159,32 @@ const Auth = () => {
     if (clean.length < 11) return false;
     
     try {
-      const { data, error } = await supabase
+      // 1. Verificar na tabela profiles
+      const { data: profileData } = await supabase
         .from("profiles")
         .select("id")
         .eq("cpf", clean)
         .maybeSingle();
       
-      if (error) {
-        console.error("Erro ao verificar documento:", error);
+      if (profileData) return true;
+      
+      // 2. Verificar no auth.users via RPC
+      const { data: authData, error: authError } = await supabase
+        .rpc('check_cpf_in_auth', { cpf_to_check: clean });
+      
+      if (authError) {
+        console.error("Erro ao verificar no auth:", authError);
         return false;
       }
       
-      return !!data;
+      return authData || false;
     } catch (error) {
       console.error("Erro na verificação:", error);
       return false;
     }
   };
 
+  // ===== FUNÇÃO CORRIGIDA - AGORA VERIFICA NO AUTH TAMBÉM =====
   const checkPhoneExists = async (phoneToCheck: string): Promise<boolean> => {
     if (!phoneToCheck) return false;
     
@@ -184,18 +192,25 @@ const Auth = () => {
     if (clean.length < 10) return false;
     
     try {
-      const { data, error } = await supabase
+      // 1. Verificar na tabela profiles
+      const { data: profileData } = await supabase
         .from("profiles")
         .select("id")
         .eq("phone", clean)
         .maybeSingle();
       
-      if (error) {
-        console.error("Erro ao verificar telefone:", error);
+      if (profileData) return true;
+      
+      // 2. Verificar no auth.users via RPC
+      const { data: authData, error: authError } = await supabase
+        .rpc('check_phone_in_auth', { phone_to_check: clean });
+      
+      if (authError) {
+        console.error("Erro ao verificar telefone no auth:", authError);
         return false;
       }
       
-      return !!data;
+      return authData || false;
     } catch (error) {
       console.error("Erro na verificação:", error);
       return false;

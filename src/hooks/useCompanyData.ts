@@ -12,11 +12,11 @@ export const useLeads = () => {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (isCorretor && !profile?.company_id) {
+      if (isCorretor) {
+        // Corretor (independente OU vinculado) sempre vê só os seus
         query = query.eq("assigned_to", profile!.id);
-      } else if (isCorretor && profile?.company_id) {
-        query = query.eq("company_id", profile.company_id);
       } else if (profile?.company_id) {
+        // Imobiliária/Admin vê todos da empresa
         query = query.eq("company_id", profile.company_id);
       }
 
@@ -38,7 +38,9 @@ export const useProperties = () => {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (profile?.company_id) {
+      if (isCorretor) {
+        query = query.eq("created_by", profile!.id);
+      } else if (profile?.company_id) {
         query = query.eq("company_id", profile.company_id);
       } else {
         query = query.eq("created_by", profile!.id);
@@ -62,8 +64,8 @@ export const useDeals = () => {
         .select("*, leads(name), properties(title)")
         .order("created_at", { ascending: false });
 
-      // LÓGICA ATUALIZADA: Busca os negócios corretos dependendo do tipo de conta
-      if (isCorretor && !profile?.company_id) {
+      if (isCorretor) {
+        // Corretor (independente OU vinculado) sempre vê só os seus
         query = query.eq("assigned_to", profile!.id);
       } else if (profile?.company_id) {
         query = query.eq("company_id", profile.company_id);
@@ -80,23 +82,21 @@ export const useDeals = () => {
 };
 
 export const useProfiles = () => {
-  const { profile } = useAuth();
+  const { profile, isCorretor } = useAuth();
   return useQuery({
     queryKey: ["profiles", profile?.company_id],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("id, full_name, role, company_id, status, email")
+        .eq("company_id", profile!.company_id!)
+        .eq("role", "corretor")
+        .order("full_name", { ascending: true });
 
-      if (profile?.company_id) {
-        query = query.eq("company_id", profile.company_id);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
-    enabled: !!profile,
+    // Só executa se for imobiliária/admin com company_id — corretor nunca chega aqui
+    enabled: !!profile && !isCorretor && !!profile.company_id,
   });
 };

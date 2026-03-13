@@ -8,7 +8,7 @@ export type Profile = {
   full_name: string | null;
   avatar_url: string | null;
   company_id: string | null;
-  role: 'admin' | 'corretor' | 'imobiliaria' | null;
+  role: 'admin' | 'corretor' | 'imobiliaria' | 'superadmin' | null;
   created_at: string;
   email?: string;
   phone?: string;
@@ -31,10 +31,11 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  profileLoading: boolean;   // <-- novo: true enquanto a query do perfil está rodando
+  profileLoading: boolean;
   isCorretor: boolean;
   isImobiliaria: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -55,8 +56,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .select('*')
         .eq('id', user.id)
         .single();
-      // Se erro (ex: RLS bloqueou), retorna null em vez de lançar exceção
-      // Isso evita que a query fique em estado de erro silencioso infinito
       if (error) {
         console.warn('[AuthContext] Erro ao carregar perfil:', error.message);
         return null;
@@ -64,8 +63,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return data as Profile;
     },
     enabled: !!user?.id,
-    retry: 1,          // tenta só 1x em caso de erro (não fica em loop)
-    staleTime: 30000,  // 30s de cache
+    retry: 1,
+    staleTime: 30000,
   });
 
   useEffect(() => {
@@ -91,9 +90,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await refetch();
   };
 
-  const isCorretor = profile?.role === 'corretor';
+  const isCorretor    = profile?.role === 'corretor';
   const isImobiliaria = profile?.role === 'imobiliaria';
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin       = profile?.role === 'admin';
+  const isSuperAdmin  = profile?.role === 'superadmin';
 
   return (
     <AuthContext.Provider value={{
@@ -104,6 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isCorretor,
       isImobiliaria,
       isAdmin,
+      isSuperAdmin,
       signOut,
       refreshProfile,
     }}>

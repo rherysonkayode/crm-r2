@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useState, useRef } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useLeads, useProfiles } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,47 +9,41 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, Pencil, Users, User, LayoutList, Columns, GripVertical, Settings2, X, ArrowRight, Phone, Mail, FileText, Tag, MapPin } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Users, User, LayoutList, Columns, GripVertical, Settings2, X, ArrowRight, Phone, Mail, FileText } from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const statusOptions = [
-  { value: "novo", label: "Novo" },
-  { value: "contato", label: "Contato" },
+  { value: "novo",        label: "Novo"        },
+  { value: "contato",     label: "Contato"     },
   { value: "qualificado", label: "Qualificado" },
-  { value: "proposta", label: "Proposta" },
-  { value: "convertido", label: "Convertido" },
-  { value: "perdido", label: "Perdido" },
+  { value: "proposta",    label: "Proposta"    },
+  { value: "convertido",  label: "Convertido"  },
+  { value: "perdido",     label: "Perdido"     },
 ];
 
 const sourceOptions = ["Site", "Indicacao", "Portal", "Redes Sociais", "Telefone", "Outro"];
 
 const statusColors: Record<string, string> = {
-  novo: "bg-blue-100 text-blue-700",
-  contato: "bg-purple-100 text-purple-700",
+  novo:        "bg-blue-100 text-blue-700",
+  contato:     "bg-purple-100 text-purple-700",
   qualificado: "bg-amber-100 text-amber-700",
-  proposta: "bg-orange-100 text-orange-700",
-  convertido: "bg-green-100 text-green-700",
-  perdido: "bg-red-100 text-red-700",
+  proposta:    "bg-orange-100 text-orange-700",
+  convertido:  "bg-green-100 text-green-700",
+  perdido:     "bg-red-100 text-red-700",
 };
 
 const columnColors = [
-  "#7E22CE", "#2563EB", "#16A34A", "#D97706", "#DC2626",
-  "#0891B2", "#9333EA", "#BE185D", "#65A30D", "#EA580C",
+  "#7E22CE","#2563EB","#16A34A","#D97706","#DC2626",
+  "#0891B2","#9333EA","#BE185D","#65A30D","#EA580C",
 ];
 
-const useKanbanColumns = (profileId?: string, companyId?: string | null) => {
+const useKanbanColumns = (profileId?: string) => {
   return useQuery({
     queryKey: ["kanban_columns", profileId],
     queryFn: async () => {
@@ -66,9 +60,7 @@ const useKanbanColumns = (profileId?: string, companyId?: string | null) => {
 
 const formatPhone = (v: string) => {
   v = v.replace(/\D/g, "");
-  if (v.length <= 10) {
-    return v.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
-  }
+  if (v.length <= 10) return v.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
   return v.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "").slice(0, 15);
 };
 
@@ -77,52 +69,61 @@ const formatCPF = (v: string) => {
   return v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4").slice(0, 14);
 };
 
-const isValidEmail = (email: string) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const Leads = () => {
   const { data: leads, isLoading } = useLeads();
   const { data: profiles } = useProfiles();
   const { profile, isCorretor, isImobiliaria } = useAuth();
-  const { data: kanbanColumns, refetch: refetchColumns } = useKanbanColumns(profile?.id, profile?.company_id);
+  const { data: kanbanColumns, refetch: refetchColumns } = useKanbanColumns(profile?.id);
   const queryClient = useQueryClient();
 
-  const [view, setView] = useState<"list" | "kanban">("list");
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [view, setView]                   = useState<"list" | "kanban">("list");
+  const [search, setSearch]               = useState("");
+  const [filterStatus, setFilterStatus]   = useState<string>("all");
   const [filterCorretor, setFilterCorretor] = useState<string>("all");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingLead, setEditingLead] = useState<any>(null);
-  const [draggedLead, setDraggedLead] = useState<string | null>(null);
-  const [movingLead, setMovingLead] = useState<string | null>(null);
-  const [moveColumn, setMoveColumn] = useState<string>("");
-  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen]       = useState(false);
+  const [editingLead, setEditingLead]     = useState<any>(null);
+  const [deleteLeadId, setDeleteLeadId]   = useState<string | null>(null);
   const [colDialogOpen, setColDialogOpen] = useState(false);
-  const [newColName, setNewColName] = useState("");
-  const [newColColor, setNewColColor] = useState("#7E22CE");
-  const [viewingLead, setViewingLead] = useState<any>(null);
+  const [newColName, setNewColName]       = useState("");
+  const [newColColor, setNewColColor]     = useState("#7E22CE");
+  const [viewingLead, setViewingLead]     = useState<any>(null);
+
+  // Drag state — suporta mouse (HTML5) e touch
+  const draggedLeadId   = useRef<string | null>(null);
+  const touchStartPos   = useRef<{ x: number; y: number } | null>(null);
+  const isTouchDragging = useRef(false);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "", phone: "", cpf: "", email: "", source: "", notes: "",
-    status: "novo" as "novo" | "contato" | "qualificado" | "proposta" | "convertido" | "perdido",
+    status: "novo" as "novo"|"contato"|"qualificado"|"proposta"|"convertido"|"perdido",
     assigned_to: "",
   });
 
   const resetForm = () => {
-    setForm({ name: "", phone: "", cpf: "", email: "", source: "", status: "novo", assigned_to: "", notes: "" });
+    setForm({ name:"", phone:"", cpf:"", email:"", source:"", status:"novo", assigned_to:"", notes:"" });
     setEditingLead(null);
   };
 
   const handleSave = async () => {
     if (!profile || !form.name.trim()) { toast.error("Informe o nome do lead"); return; }
-    if (form.email && !isValidEmail(form.email)) { toast.error("Por favor, insira um e-mail valido"); return; }
-    const { cpf: _cpf, ...formWithoutCpf } = form;
+    if (form.email && !isValidEmail(form.email)) { toast.error("Insira um e-mail valido"); return; }
+
     const payload = {
-      ...formWithoutCpf,
-      company_id: profile.company_id ?? null,
+      name:        form.name,
+      phone:       form.phone || null,
+      email:       form.email || null,
+      source:      form.source || null,
+      notes:       form.notes  || null,
+      status:      form.status,
+      // Corretor sempre fica atribuído a si mesmo; imobiliária pode atribuir a outro
       assigned_to: isCorretor ? profile.id : (form.assigned_to || null),
+      // company_id garante que a imobiliária enxergue o lead
+      company_id:  profile.company_id ?? null,
     };
+
     let error;
     if (editingLead) {
       ({ error } = await supabase.from("leads").update(payload).eq("id", editingLead.id));
@@ -130,7 +131,7 @@ const Leads = () => {
       ({ error } = await supabase.from("leads").insert(payload as any));
     }
     if (error) { toast.error("Erro ao salvar lead: " + error.message); return; }
-    toast.success(editingLead ? "Lead atualizado com sucesso!" : "Lead criado com sucesso!");
+    toast.success(editingLead ? "Lead atualizado!" : "Lead criado!");
     queryClient.invalidateQueries({ queryKey: ["leads"] });
     setDialogOpen(false);
     resetForm();
@@ -140,7 +141,7 @@ const Leads = () => {
     if (!deleteLeadId) return;
     const { error } = await supabase.from("leads").delete().eq("id", deleteLeadId);
     if (error) { toast.error("Erro ao excluir"); return; }
-    toast.success("Lead excluido com sucesso!");
+    toast.success("Lead excluido!");
     queryClient.invalidateQueries({ queryKey: ["leads"] });
     setDeleteLeadId(null);
   };
@@ -148,45 +149,81 @@ const Leads = () => {
   const openEdit = (lead: any) => {
     if (isCorretor && lead.assigned_to !== profile?.id) { toast.error("Voce so pode editar seus proprios leads."); return; }
     setForm({
-      name: lead.name,
-      phone: lead.phone || "",
-      cpf: lead.cpf || "",
-      email: lead.email || "",
-      source: lead.source || "",
-      status: lead.status,
-      assigned_to: lead.assigned_to || "",
-      notes: lead.notes || ""
+      name: lead.name, phone: lead.phone || "", cpf: lead.cpf || "",
+      email: lead.email || "", source: lead.source || "", status: lead.status,
+      assigned_to: lead.assigned_to || "", notes: lead.notes || "",
     });
     setEditingLead(lead);
     setDialogOpen(true);
   };
 
-  const handleDrop = async (columnId: string) => {
-    if (!draggedLead) return;
-    const { error } = await supabase.from("leads").update({ kanban_column_id: columnId } as any).eq("id", draggedLead);
+  // ── Drag & Drop: HTML5 (desktop) ──────────────────────────────────────────
+  const handleDragStart = (leadId: string) => { draggedLeadId.current = leadId; };
+  const handleDragEnd   = () => { draggedLeadId.current = null; setDragOverCol(null); };
+
+  const handleDrop = async (columnId: string | null) => {
+    if (!draggedLeadId.current) return;
+    setDragOverCol(null);
+    const { error } = await supabase
+      .from("leads")
+      .update({ kanban_column_id: columnId } as any)
+      .eq("id", draggedLeadId.current);
     if (error) { toast.error("Erro ao mover lead"); return; }
     queryClient.invalidateQueries({ queryKey: ["leads"] });
-    setDraggedLead(null);
+    draggedLeadId.current = null;
   };
 
-  const handleMoveLead = async (leadId: string, newColumnId: string | null) => {
-    const { error } = await supabase.from("leads").update({ kanban_column_id: newColumnId } as any).eq("id", leadId);
-    if (error) { toast.error("Erro ao mover lead"); return; }
-    toast.success("Lead movido!");
-    queryClient.invalidateQueries({ queryKey: ["leads"] });
-    setMovingLead(null);
-    setMoveColumn("");
+  // ── Drag & Drop: Touch (mobile) ───────────────────────────────────────────
+  const handleTouchStart = (leadId: string, e: React.TouchEvent) => {
+    draggedLeadId.current = leadId;
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    isTouchDragging.current = false;
+  };
+
+  const getColumnFromPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    const colEl = el?.closest("[data-col-id]") as HTMLElement | null;
+    return colEl?.dataset.colId ?? null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
+    // Só considera arraste se moveu mais de 8px
+    if (dx > 8 || dy > 8) {
+      isTouchDragging.current = true;
+      const colId = getColumnFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+      setDragOverCol(colId);
+    }
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent) => {
+    // Só move se foi realmente um arraste, não um clique
+    if (isTouchDragging.current && draggedLeadId.current) {
+      const t = e.changedTouches[0];
+      const colId = getColumnFromPoint(t.clientX, t.clientY);
+      if (colId !== null) {
+        await handleDrop(colId === "null" ? null : colId);
+      }
+    }
+    draggedLeadId.current = null;
+    touchStartPos.current = null;
+    isTouchDragging.current = false;
+    setDragOverCol(null);
   };
 
   const handleCreateColumn = async () => {
     if (!newColName.trim() || !profile) return;
     const { error } = await supabase.from("kanban_columns").insert({
-      name: newColName, color: newColColor, position: (kanbanColumns?.length ?? 0), company_id: profile.company_id ?? null, created_by: profile.id,
+      name: newColName, color: newColColor,
+      position: kanbanColumns?.length ?? 0,
+      company_id: profile.company_id ?? null,
+      created_by: profile.id,
     } as any);
     if (error) { toast.error("Erro ao criar coluna: " + error.message); return; }
     toast.success("Coluna criada!");
-    setNewColName("");
-    setNewColColor("#7E22CE");
+    setNewColName(""); setNewColColor("#7E22CE");
     refetchColumns();
   };
 
@@ -200,26 +237,32 @@ const Leads = () => {
   };
 
   const filtered = leads?.filter((l) => {
-    const matchSearch = l.name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || l.status === filterStatus;
-    const matchCorretor = isCorretor ? l.assigned_to === profile?.id : filterCorretor === "all" || l.assigned_to === filterCorretor;
+    const matchSearch   = l.name.toLowerCase().includes(search.toLowerCase());
+    const matchStatus   = filterStatus === "all" || l.status === filterStatus;
+    // Corretor já recebe só os seus via query; filtro de corretor só vale para imobiliária
+    const matchCorretor = isCorretor
+      ? true
+      : filterCorretor === "all" || l.assigned_to === filterCorretor;
     return matchSearch && matchStatus && matchCorretor;
   });
 
-  const myLeads = leads?.filter((l) => l.assigned_to === profile?.id) ?? [];
+  const myLeads    = leads ?? [];
   const totalLeads = leads?.length ?? 0;
 
+  // ── LeadCard ──────────────────────────────────────────────────────────────
   const LeadCard = ({ lead }: { lead: any }) => {
-    const isMine = lead.assigned_to === profile?.id;
+    const isMine     = lead.assigned_to === profile?.id;
     const responsavel = profiles?.find(p => p.id === lead.assigned_to);
-    const isMoving = movingLead === lead.id;
 
     return (
       <div
         draggable
-        onDragStart={(e) => { setDraggedLead(lead.id); e.dataTransfer.setData("text/plain", lead.id); }}
-        onDragEnd={() => setDraggedLead(null)}
-        className="bg-white rounded-xl border border-slate-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all group relative"
+        onDragStart={() => handleDragStart(lead.id)}
+        onDragEnd={handleDragEnd}
+        onTouchStart={(e) => handleTouchStart(lead.id, e)}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="bg-white rounded-xl border border-slate-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all select-none touch-none"
       >
         <div className="flex items-start justify-between gap-2">
           <div
@@ -230,15 +273,6 @@ const Leads = () => {
             <p className="font-semibold text-sm text-slate-800 truncate hover:text-[#7E22CE] transition-colors">{lead.name}</p>
           </div>
           <div className="flex gap-0.5 shrink-0">
-            {!isMoving ? (
-              <button
-                onClick={() => { setMovingLead(lead.id); setMoveColumn(lead.kanban_column_id || ""); }}
-                className="p-1 rounded hover:bg-blue-50 transition-colors"
-                title="Mover para outra coluna"
-              >
-                <ArrowRight className="w-3.5 h-3.5 text-blue-400" />
-              </button>
-            ) : null}
             <button onClick={() => openEdit(lead)} className="p-1 rounded hover:bg-slate-100 transition-colors">
               <Pencil className="w-3 h-3 text-slate-400" />
             </button>
@@ -250,35 +284,17 @@ const Leads = () => {
           </div>
         </div>
 
-        {isMoving && (
-          <div className="mt-2 flex items-center gap-1">
-            <select
-              value={moveColumn}
-              onChange={(e) => setMoveColumn(e.target.value)}
-              className="text-xs border rounded p-1 flex-1"
-              autoFocus
-            >
-              <option value="">Mover para...</option>
-              {kanbanColumns?.map(col => (
-                <option key={col.id} value={col.id} disabled={col.id === lead.kanban_column_id}>{col.name}</option>
-              ))}
-              <option value="null" disabled={!lead.kanban_column_id}>Sem coluna</option>
-            </select>
-            <button onClick={() => handleMoveLead(lead.id, moveColumn === "null" ? null : moveColumn)} className="text-xs bg-green-500 text-white px-2 py-1 rounded">OK</button>
-            <button onClick={() => { setMovingLead(null); setMoveColumn(""); }} className="text-xs bg-gray-300 px-2 py-1 rounded">X</button>
-          </div>
-        )}
-
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 space-y-0.5">
           {lead.email && <p className="text-xs text-slate-400 truncate">{lead.email}</p>}
           {lead.phone && <p className="text-xs text-slate-400">{lead.phone}</p>}
         </div>
+
         <div className="flex items-center justify-between mt-2.5">
           <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", statusColors[lead.status])}>
             {statusOptions.find(s => s.value === lead.status)?.label}
           </span>
           {isImobiliaria && responsavel && (
-            <span className="text-[10px] text-slate-400">{responsavel.full_name}</span>
+            <span className="text-[10px] text-slate-400 truncate max-w-[80px]">{responsavel.full_name}</span>
           )}
         </div>
       </div>
@@ -289,6 +305,7 @@ const Leads = () => {
     <AppLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Leads</h1>
@@ -296,31 +313,33 @@ const Leads = () => {
               {isCorretor ? "Seus contatos e oportunidades" : "Todos os leads da imobiliaria"}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Toggle lista / kanban */}
             <div className="flex bg-muted rounded-lg p-0.5">
               <button
                 onClick={() => setView("list")}
-                className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5", view === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
+                className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5",
+                  view === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
               >
                 <LayoutList className="w-4 h-4" /> Lista
               </button>
               <button
                 onClick={() => setView("kanban")}
-                className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5", view === "kanban" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
+                className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5",
+                  view === "kanban" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
               >
                 <Columns className="w-4 h-4" /> Kanban
               </button>
             </div>
 
+            {/* Gerenciar colunas */}
             {view === "kanban" && (
               <Dialog open={colDialogOpen} onOpenChange={setColDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="icon"><Settings2 className="w-4 h-4" /></Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Gerenciar Colunas</DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle>Gerenciar Colunas</DialogTitle></DialogHeader>
                   <div className="space-y-4 py-2">
                     <div className="space-y-2">
                       {kanbanColumns?.map(col => (
@@ -338,16 +357,12 @@ const Leads = () => {
                     </div>
                     <div className="border-t border-border pt-4 space-y-3">
                       <p className="text-sm font-semibold">Nova coluna</p>
-                      <div className="flex gap-2">
-                        <Input placeholder="Nome da coluna" value={newColName} onChange={(e) => setNewColName(e.target.value)} className="flex-1" />
-                      </div>
+                      <Input placeholder="Nome da coluna" value={newColName} onChange={(e) => setNewColName(e.target.value)} />
                       <div className="space-y-1.5">
                         <Label className="text-xs">Cor</Label>
                         <div className="flex gap-2 flex-wrap">
                           {columnColors.map(c => (
-                            <button
-                              key={c}
-                              onClick={() => setNewColColor(c)}
+                            <button key={c} onClick={() => setNewColColor(c)}
                               className={cn("w-6 h-6 rounded-full transition-transform hover:scale-110", newColColor === c && "ring-2 ring-offset-2 ring-slate-400 scale-110")}
                               style={{ backgroundColor: c }}
                             />
@@ -363,16 +378,15 @@ const Leads = () => {
               </Dialog>
             )}
 
+            {/* Novo Lead */}
             <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo Lead</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{editingLead ? "Editar Lead" : "Novo Lead"}</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>{editingLead ? "Editar Lead" : "Novo Lead"}</DialogTitle></DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Nome *</Label>
                       <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -382,7 +396,7 @@ const Leads = () => {
                       <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })} placeholder="000.000.000-00" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Telefone</Label>
                       <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="(00) 00000-0000" />
@@ -392,35 +406,30 @@ const Leads = () => {
                       <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@exemplo.com" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Origem</Label>
                       <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v })}>
                         <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          {sourceOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent>{sourceOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label>Status</Label>
                       <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as typeof form.status })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent>{statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
-                  {isImobiliaria && (
+                  {/* Atribuir a corretor — só imobiliária vê */}
+                  {isImobiliaria && profiles && profiles.length > 0 && (
                     <div className="space-y-2">
                       <Label>Atribuir a</Label>
                       <Select value={form.assigned_to} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
                         <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
                         <SelectContent>
-                          {profiles?.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>{p.full_name || "Sem nome"}</SelectItem>
-                          ))}
+                          {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.full_name || "Sem nome"}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -436,6 +445,7 @@ const Leads = () => {
           </div>
         </div>
 
+        {/* Mini stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
           {isCorretor ? (
             <>
@@ -447,9 +457,9 @@ const Leads = () => {
                 <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Convertidos</p>
                 <p className="text-3xl font-bold text-green-600">{myLeads.filter(l => l.status === "convertido").length}</p>
               </div>
-              <div className="bg-card border border-border rounded-xl p-4">
+              <div className="bg-card border border-border rounded-xl p-4 col-span-2 sm:col-span-1">
                 <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Em Andamento</p>
-                <p className="text-3xl font-bold text-amber-600">{myLeads.filter(l => !["convertido", "perdido"].includes(l.status)).length}</p>
+                <p className="text-3xl font-bold text-amber-600">{myLeads.filter(l => !["convertido","perdido"].includes(l.status)).length}</p>
               </div>
             </>
           ) : (
@@ -462,7 +472,7 @@ const Leads = () => {
                 <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Convertidos</p>
                 <p className="text-3xl font-bold text-green-600">{leads?.filter(l => l.status === "convertido").length ?? 0}</p>
               </div>
-              <div className="bg-card border border-border rounded-xl p-4">
+              <div className="bg-card border border-border rounded-xl p-4 col-span-2 sm:col-span-1">
                 <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Corretores Ativos</p>
                 <p className="text-3xl font-bold text-purple-600">{profiles?.length ?? 0}</p>
               </div>
@@ -470,6 +480,7 @@ const Leads = () => {
           )}
         </div>
 
+        {/* Filtros */}
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -479,7 +490,7 @@ const Leads = () => {
             <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
-              {statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              {statusOptions.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
           {isImobiliaria && profiles && profiles.length > 0 && (
@@ -490,12 +501,13 @@ const Leads = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os corretores</SelectItem>
-                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || "Sem nome"}</SelectItem>)}
+                {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.full_name || "Sem nome"}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
         </div>
 
+        {/* Vista Lista */}
         {view === "list" && (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
@@ -504,37 +516,30 @@ const Leads = () => {
                   <tr className="border-b border-border bg-muted/50">
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Nome</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Contato</th>
-                    <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Origem</th>
+                    <th className="hidden sm:table-cell text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Origem</th>
                     <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                    {isImobiliaria && <th className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Corretor</th>}
+                    {isImobiliaria && <th className="hidden md:table-cell text-left p-3 text-xs font-semibold text-muted-foreground uppercase">Corretor</th>}
                     <th className="text-right p-3 text-xs font-semibold text-muted-foreground uppercase">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filtered?.map((lead) => {
-                    const responsavel = profiles?.find((p) => p.id === lead.assigned_to);
+                    const responsavel = profiles?.find(p => p.id === lead.assigned_to);
                     const isMine = lead.assigned_to === profile?.id;
                     return (
-                      <tr
-                        key={lead.id}
-                        className="hover:bg-muted/30 transition-colors cursor-pointer"
-                        onClick={() => setViewingLead(lead)}
-                      >
+                      <tr key={lead.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => setViewingLead(lead)}>
                         <td className="p-3 font-medium text-card-foreground">
-                          <div className="flex items-center gap-2">
-                            {isCorretor && isMine && <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />}
-                            <span className="hover:text-[#7E22CE] transition-colors">{lead.name}</span>
-                          </div>
+                          <span className="hover:text-[#7E22CE] transition-colors">{lead.name}</span>
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">{lead.email || lead.phone || "-"}</td>
-                        <td className="p-3 text-sm text-muted-foreground">{lead.source || "-"}</td>
+                        <td className="hidden sm:table-cell p-3 text-sm text-muted-foreground">{lead.source || "-"}</td>
                         <td className="p-3">
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColors[lead.status] || ""}`}>
+                          <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full capitalize", statusColors[lead.status] || "")}>
                             {statusOptions.find(s => s.value === lead.status)?.label || lead.status}
                           </span>
                         </td>
                         {isImobiliaria && (
-                          <td className="p-3 text-sm text-muted-foreground">
+                          <td className="hidden md:table-cell p-3 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1.5">
                               <User className="w-3.5 h-3.5" />
                               {responsavel?.full_name || "Nao atribuido"}
@@ -565,6 +570,7 @@ const Leads = () => {
           </div>
         )}
 
+        {/* Vista Kanban */}
         {view === "kanban" && (
           <div>
             {(!kanbanColumns || kanbanColumns.length === 0) ? (
@@ -580,12 +586,20 @@ const Leads = () => {
               <div className="flex gap-4 overflow-x-auto pb-4">
                 {kanbanColumns.map((col) => {
                   const colLeads = filtered?.filter((l: any) => l.kanban_column_id === col.id) ?? [];
+                  const isOver   = dragOverCol === col.id;
                   return (
                     <div
                       key={col.id}
-                      className="flex-shrink-0 w-72 bg-slate-50 rounded-xl border border-slate-100 flex flex-col"
+                      data-col-id={col.id}
+                      className={cn(
+                        "flex-shrink-0 w-72 rounded-xl border flex flex-col transition-colors",
+                        isOver
+                          ? "bg-purple-50 border-purple-300"
+                          : "bg-slate-50 border-slate-100"
+                      )}
                       style={{ borderTopWidth: 3, borderTopColor: col.color }}
-                      onDragOver={(e) => e.preventDefault()}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.id); }}
+                      onDragLeave={() => setDragOverCol(null)}
                       onDrop={() => handleDrop(col.id)}
                     >
                       <div className="px-3 py-3 flex items-center justify-between">
@@ -598,41 +612,45 @@ const Leads = () => {
                         </span>
                       </div>
                       <div className="p-2 space-y-2 flex-1 min-h-[120px]">
-                        {colLeads.map((lead: any) => (
-                          <LeadCard key={lead.id} lead={lead} />
-                        ))}
+                        {colLeads.map((lead: any) => <LeadCard key={lead.id} lead={lead} />)}
                       </div>
                     </div>
                   );
                 })}
-                <div
-                  className="flex-shrink-0 w-72 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex flex-col"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={async () => {
-                    if (!draggedLead) return;
-                    await supabase.from("leads").update({ kanban_column_id: null } as any).eq("id", draggedLead);
-                    queryClient.invalidateQueries({ queryKey: ["leads"] });
-                    setDraggedLead(null);
-                  }}
-                >
-                  <div className="px-3 py-3 flex items-center justify-between">
-                    <h3 className="font-semibold text-sm text-slate-400">Sem coluna</h3>
-                    <span className="text-xs bg-white border border-slate-100 rounded-full px-2 py-0.5 text-muted-foreground font-medium">
-                      {filtered?.filter((l: any) => !l.kanban_column_id).length ?? 0}
-                    </span>
-                  </div>
-                  <div className="p-2 space-y-2 flex-1 min-h-[120px]">
-                    {filtered?.filter((l: any) => !l.kanban_column_id).map((lead: any) => (
-                      <LeadCard key={lead.id} lead={lead} />
-                    ))}
-                  </div>
-                </div>
+
+                {/* Coluna "Sem coluna" */}
+                {(() => {
+                  const unassigned = filtered?.filter((l: any) => !l.kanban_column_id) ?? [];
+                  const isOver = dragOverCol === "null";
+                  return (
+                    <div
+                      data-col-id="null"
+                      className={cn(
+                        "flex-shrink-0 w-72 rounded-xl border border-dashed flex flex-col transition-colors",
+                        isOver ? "bg-purple-50 border-purple-300" : "bg-slate-50 border-slate-200"
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCol("null"); }}
+                      onDragLeave={() => setDragOverCol(null)}
+                      onDrop={() => handleDrop(null)}
+                    >
+                      <div className="px-3 py-3 flex items-center justify-between">
+                        <h3 className="font-semibold text-sm text-slate-400">Sem coluna</h3>
+                        <span className="text-xs bg-white border border-slate-100 rounded-full px-2 py-0.5 text-muted-foreground font-medium">
+                          {unassigned.length}
+                        </span>
+                      </div>
+                      <div className="p-2 space-y-2 flex-1 min-h-[120px]">
+                        {unassigned.map((lead: any) => <LeadCard key={lead.id} lead={lead} />)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
         )}
 
-        {/* MODAL DETALHES DO LEAD */}
+        {/* Modal detalhes */}
         <Dialog open={!!viewingLead} onOpenChange={(o) => !o && setViewingLead(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -645,7 +663,7 @@ const Leads = () => {
             </DialogHeader>
             {viewingLead && (
               <div className="space-y-4 py-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={cn("text-xs font-semibold px-3 py-1 rounded-full", statusColors[viewingLead.status])}>
                     {statusOptions.find(s => s.value === viewingLead.status)?.label}
                   </span>
@@ -653,7 +671,6 @@ const Leads = () => {
                     <span className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full">{viewingLead.source}</span>
                   )}
                 </div>
-
                 <div className="space-y-3 bg-slate-50 rounded-xl p-4">
                   {viewingLead.phone && (
                     <div className="flex items-center gap-3">
@@ -673,7 +690,7 @@ const Leads = () => {
                       <span className="text-sm text-slate-700">CPF: {viewingLead.cpf}</span>
                     </div>
                   )}
-                  {isImobiliaria && viewingLead.assigned_to && (
+                  {isImobiliaria && (
                     <div className="flex items-center gap-3">
                       <User className="w-4 h-4 text-[#7E22CE] shrink-0" />
                       <span className="text-sm text-slate-700">
@@ -682,7 +699,6 @@ const Leads = () => {
                     </div>
                   )}
                 </div>
-
                 {viewingLead.notes && (
                   <div className="space-y-1.5">
                     <p className="text-xs font-semibold text-slate-500 uppercase">Observacoes</p>
@@ -691,30 +707,20 @@ const Leads = () => {
                     </div>
                   </div>
                 )}
-
                 {viewingLead.created_at && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-xs text-slate-400">Criado em:</span>
-                    <span className="text-xs text-slate-600 font-medium">
-                      {new Date(viewingLead.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  <p className="text-xs text-slate-400">
+                    Criado em: <span className="font-medium text-slate-600">
+                      {new Date(viewingLead.created_at).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}
                     </span>
-                  </div>
+                  </p>
                 )}
-
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => { setViewingLead(null); openEdit(viewingLead); }}
-                  >
+                  <Button variant="outline" className="flex-1" onClick={() => { setViewingLead(null); openEdit(viewingLead); }}>
                     <Pencil className="w-4 h-4 mr-2" /> Editar
                   </Button>
                   {(isImobiliaria || viewingLead.assigned_to === profile?.id) && (
-                    <Button
-                      variant="outline"
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => { setViewingLead(null); setDeleteLeadId(viewingLead.id); }}
-                    >
+                    <Button variant="outline" className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => { setViewingLead(null); setDeleteLeadId(viewingLead.id); }}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   )}
@@ -729,14 +735,12 @@ const Leads = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>Excluir Lead Permanentemente</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir este contato? Esta acao nao podera ser desfeita e todo o historico deste lead sera perdido.
+                Tem certeza? Esta acao nao podera ser desfeita e todo o historico deste lead sera perdido.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-                Sim, excluir
-              </AlertDialogAction>
+              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Sim, excluir</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

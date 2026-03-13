@@ -3,11 +3,14 @@ import { Menu } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserNav } from "./UserNav";
-import { useTheme } from "@/contexts/ThemeContext";
+import { NotificationBell } from "./NotificationBell";
+import { useCalendarNotifications } from "@/hooks/useNotifications";
 
 export const AppLayout = ({ children }: { children: ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { theme } = useTheme();
+
+  // Gera notificações automáticas de calendário e plano ao carregar
+  useCalendarNotifications();
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -43,8 +46,9 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
             </button>
             <span className="ml-4 font-bold text-lg text-foreground lg:hidden">CRM R2</span>
           </div>
-          
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2">
+            <NotificationBell />
             <ThemeToggle />
             <UserNav />
           </div>

@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/contexts/ThemeContext"; // 👈 ADICIONADO
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -28,10 +28,18 @@ import FAQ from "./pages/FAQ";
 import Convite from "./pages/Convite";
 import Home from "./pages/Home";
 import Subscription from "./pages/Subscription";
-import ChatBot from "@/components/ChatBot";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
+import ChatBot from "@/components/ChatBot";
 
 const queryClient = new QueryClient();
+
+// Redireciona superadmin direto para /admin, outros veem o Dashboard normal
+const DashboardRouter = () => {
+  const { profile } = useAuth();
+  if (profile?.role === "superadmin") return <Navigate to="/admin" replace />;
+  return <Dashboard />;
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, profile, loading, profileLoading } = useAuth();
@@ -43,9 +51,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       const t = setTimeout(() => setProfileTimeout(true), 3000);
       return () => clearTimeout(t);
     }
-    if (profile || !profileLoading) {
-      setProfileTimeout(false);
-    }
+    if (profile || !profileLoading) setProfileTimeout(false);
   }, [loading, user, profile, profileLoading]);
 
   if (loading) return (
@@ -64,14 +70,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   );
 
   if (!profile) {
-    if (location.pathname !== "/subscription") {
-      return <Navigate to="/subscription" replace />;
-    }
+    if (location.pathname !== "/subscription") return <Navigate to="/subscription" replace />;
     return <>{children}</>;
   }
 
-  const trialEnd = profile.trial_end ? new Date(profile.trial_end) : null;
-  const now = new Date();
+  // Superadmin: acesso irrestrito, sem verificação de plano
+  if (profile.role === "superadmin") return <>{children}</>;
+
+  const trialEnd  = profile.trial_end ? new Date(profile.trial_end) : null;
+  const now       = new Date();
   const isExpired =
     profile.subscription_status === "expired" ||
     (profile.subscription_status === "trial" && trialEnd && trialEnd < now);
@@ -83,19 +90,29 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Rota exclusiva superadmin
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, profile, loading } = useAuth();
+  if (loading) return null;
+  if (!user || profile?.role !== "superadmin") return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
+
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, profile, loading } = useAuth();
-
   if (loading) return null;
   if (!user) return <>{children}</>;
 
-  const trialEnd = profile?.trial_end ? new Date(profile.trial_end) : null;
-  const now = new Date();
+  const trialEnd  = profile?.trial_end ? new Date(profile.trial_end) : null;
+  const now       = new Date();
   const isExpired =
     profile?.subscription_status === "expired" ||
     (profile?.subscription_status === "trial" && trialEnd && trialEnd < now);
 
   if (isExpired) return <>{children}</>;
+
+  // Superadmin vai para /admin ao tentar acessar rota pública
+  if (profile?.role === "superadmin") return <Navigate to="/admin" replace />;
 
   return <Navigate to="/dashboard" replace />;
 };
@@ -107,37 +124,40 @@ const App = () => (
       <Sonner />
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
-          <ThemeProvider> {/* 👈 THEME PROVIDER ENVOLVENDO AS ROTAS */}
+          <ThemeProvider>
             <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/home" element={<Home />} />
-              <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-              <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/confirmar-email" element={<ConfirmEmail />} />
-              <Route path="/termos" element={<Termos />} />
-              <Route path="/privacidade" element={<Privacidade />} />
-              <Route path="/faq" element={<FAQ />} />
-              <Route path="/convite/:token" element={<Convite />} />
+              <Route path="/"                      element={<Home />} />
+              <Route path="/home"                  element={<Home />} />
+              <Route path="/auth"                  element={<PublicRoute><Auth /></PublicRoute>} />
+              <Route path="/forgot-password"       element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+              <Route path="/reset-password"        element={<ResetPassword />} />
+              <Route path="/confirmar-email"       element={<ConfirmEmail />} />
+              <Route path="/termos"                element={<Termos />} />
+              <Route path="/privacidade"           element={<Privacidade />} />
+              <Route path="/faq"                   element={<FAQ />} />
+              <Route path="/convite/:token"        element={<Convite />} />
 
-              <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-              <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
-              <Route path="/funnel" element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
-              <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-              <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
-              <Route path="/team/:id" element={<ProtectedRoute><TeamDetails /></ProtectedRoute>} />
-              <Route path="/deal/:id" element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
-              <Route path="/deal/:id/commissions" element={<ProtectedRoute><DealCommissionsEdit /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/calculators" element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
-              <Route path="/advertise" element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
+              {/* Painel exclusivo do gestor */}
+              <Route path="/admin"                 element={<SuperAdminRoute><AdminPanel /></SuperAdminRoute>} />
 
-              <Route path="*" element={<NotFound />} />
+              <Route path="/subscription"          element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+              <Route path="/dashboard"             element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
+              <Route path="/leads"                 element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+              <Route path="/properties"            element={<ProtectedRoute><Properties /></ProtectedRoute>} />
+              <Route path="/funnel"                element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
+              <Route path="/calendar"              element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+              <Route path="/team"                  element={<ProtectedRoute><Team /></ProtectedRoute>} />
+              <Route path="/team/:id"              element={<ProtectedRoute><TeamDetails /></ProtectedRoute>} />
+              <Route path="/deal/:id"              element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
+              <Route path="/deal/:id/commissions"  element={<ProtectedRoute><DealCommissionsEdit /></ProtectedRoute>} />
+              <Route path="/settings"              element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/calculators"           element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
+              <Route path="/advertise"             element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
+
+              <Route path="*"                      element={<NotFound />} />
             </Routes>
             <ChatBot />
-          </ThemeProvider> {/* 👈 FECHA THEME PROVIDER */}
+          </ThemeProvider>
         </AuthProvider>
       </HashRouter>
     </TooltipProvider>

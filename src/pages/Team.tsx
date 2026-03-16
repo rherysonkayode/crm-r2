@@ -66,6 +66,13 @@ const PLAN_LIMITS: Record<string, number> = {
   enterprise:   20,
 };
 
+const PLAN_PRICES: Record<string, number> = {
+  start:        97,
+  pro:          147,
+  profissional: 197,
+  enterprise:   347,
+};
+
 const Team = () => {
   const { profile, isImobiliaria } = useAuth();
   const queryClient = useQueryClient();

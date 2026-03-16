@@ -18,7 +18,7 @@ const plans = {
     users: 1,
     leads: 200,
     imoveis: 50,
-    features: ["Gestão de leads", "Cadastro de imóveis", "Calendário", "Calculadora financeira"],
+    features: ["Gestão de leads", "Cadastro de imóveis", "Calendário", "Calculadora financeira", "Relatórios básicos", "Suporte por e-mail"],
   },
   pro: {
     name: "Pro",
@@ -26,7 +26,7 @@ const plans = {
     users: 1,
     leads: 500,
     imoveis: 150,
-    features: ["Tudo do Start", "Relatórios avançados", "Exportação de dados"],
+    features: ["Tudo do Start", "Relatórios avançados", "Exportação de dados", "Campos personalizados"],
   },
   profissional: {
     name: "Profissional",

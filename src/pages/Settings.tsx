@@ -82,7 +82,9 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
 
-  const canManageTeam = isImobiliaria || canManageUsers;
+  // Start e Pro são planos individuais — sem gestão de equipe
+  const hasTeamPlan = ["profissional", "enterprise"].includes(profile?.plan ?? "");
+  const canManageTeam = (isImobiliaria || canManageUsers) && hasTeamPlan;
   const tabs = canManageTeam ? [...baseTabs, teamTab] : baseTabs;
 
   const [activeTab, setActiveTab]         = useState("perfil");

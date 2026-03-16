@@ -13,8 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   Bell, Users, Building2, CreditCard, ShieldCheck,
   ToggleLeft, ToggleRight, Search, Send, TrendingUp,
-  TrendingDown, DollarSign, UserCheck, UserX, Download,
-  Activity, Calendar, BarChart3, Pencil, X,
+  TrendingDown, DollarSign, UserCheck, Download,
+  Activity, Calendar, BarChart3, Pencil, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -24,74 +24,82 @@ import {
 import { ptBR } from "date-fns/locale";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar,
+  ResponsiveContainer,
 } from "recharts";
 
-// ─── Preços dos planos ────────────────────────────────────────────────────
 const PLAN_PRICES: Record<string, number> = {
-  start:        97,
-  pro:          97,   // fallback
-  profissional: 197,
-  enterprise:   347,
+  start: 97, pro: 147, profissional: 197, enterprise: 347,
 };
-
 const PLAN_LABELS: Record<string, string> = {
-  start:        "Start",
-  pro:          "Start",
-  profissional: "Profissional",
-  enterprise:   "Enterprise",
+  start: "Start", pro: "Pro", profissional: "Profissional", enterprise: "Enterprise",
 };
-
 const planColors: Record<string, string> = {
-  trial:    "bg-amber-100 text-amber-700",
-  active:   "bg-green-100 text-green-700",
-  expired:  "bg-red-100 text-red-600",
-  canceled: "bg-slate-100 text-slate-500",
+  trial: "bg-amber-100 text-amber-700", active: "bg-green-100 text-green-700",
+  expired: "bg-red-100 text-red-600",   canceled: "bg-slate-100 text-slate-500",
 };
-
 const roleLabels: Record<string, string> = {
-  imobiliaria: "Imobiliária",
-  corretor:    "Corretor",
-  admin:       "Admin",
-  superadmin:  "Super Admin",
+  imobiliaria: "Imobiliária", corretor: "Corretor", admin: "Admin", superadmin: "Super Admin",
 };
-
 const tabs = [
-  { id: "overview",      label: "Visão Geral",   icon: BarChart3  },
-  { id: "clientes",      label: "Clientes",       icon: Users      },
-  { id: "atividade",     label: "Atividade",      icon: Activity   },
-  { id: "comunicados",   label: "Comunicados",    icon: Bell       },
+  { id: "overview",    label: "Visão Geral", icon: BarChart3 },
+  { id: "clientes",    label: "Clientes",    icon: Users     },
+  { id: "atividade",   label: "Atividade",   icon: Activity  },
+  { id: "comunicados", label: "Comunicados", icon: Bell      },
 ];
 
-// ─── Hooks de dados ───────────────────────────────────────────────────────
-const useAllProfiles = () =>
-  useQuery({
+// ─── Hooks com Realtime ───────────────────────────────────────────────────
+const useAllProfiles = () => {
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ["admin_profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, role, status, plan, subscription_status, trial_end, trial_start, company_id, created_at, phone")
+        .select(`
+          id, full_name, email, role, status, plan, subscription_status,
+          trial_end, trial_start, company_id, created_at, phone,
+          cpf, creci, updated_at,
+          companies:company_id (name)
+        `)
         .neq("role", "superadmin")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
   });
+  useEffect(() => {
+    const ch = supabase.channel("admin_profiles_rt")
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "profiles" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin_profiles"] });
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+  return query;
+};
 
-const useLeadCounts = () =>
-  useQuery({
+const useLeadCounts = () => {
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ["admin_lead_counts"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("assigned_to, created_at");
+      const { data, error } = await supabase.from("leads").select("assigned_to, created_at");
       if (error) throw error;
       return data ?? [];
     },
   });
+  useEffect(() => {
+    const ch = supabase.channel("admin_leads_rt")
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "leads" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin_lead_counts"] });
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+  return query;
+};
 
-const useActivityLogs = () =>
-  useQuery({
+const useActivityLogs = () => {
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ["admin_activity_logs"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -99,86 +107,123 @@ const useActivityLogs = () =>
         .select("*, profiles(full_name, role)")
         .order("created_at", { ascending: false })
         .limit(100);
-      if (error) return []; // tabela pode não existir ainda
+      if (error) return [];
       return data ?? [];
     },
   });
+  useEffect(() => {
+    const ch = supabase.channel("admin_logs_rt")
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "activity_logs" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["admin_activity_logs"] });
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+  return query;
+};
 
-// ─── Componente principal ─────────────────────────────────────────────────
+// ─── Componente expandido de linha ────────────────────────────────────────
+const ExpandedRow = ({ p, leadCount }: { p: any; leadCount: number }) => (
+  <tr className="bg-muted/20">
+    <td colSpan={8} className="px-4 py-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div>
+          <p className="text-muted-foreground mb-0.5">E-mail</p>
+          <p className="font-medium">{p.email || "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Telefone</p>
+          <p className="font-medium">{p.phone || "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">CRECI</p>
+          <p className="font-medium">{p.creci || "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Empresa</p>
+          <p className="font-medium">{p.companies?.name || "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Cadastro</p>
+          <p className="font-medium">{p.created_at ? format(parseISO(p.created_at), "dd/MM/yyyy HH:mm") : "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Última atualização</p>
+          <p className="font-medium">{p.updated_at ? format(parseISO(p.updated_at), "dd/MM/yyyy HH:mm") : "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Trial até</p>
+          <p className="font-medium">{p.trial_end ? format(parseISO(p.trial_end), "dd/MM/yyyy") : "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground mb-0.5">Total de leads</p>
+          <p className="font-medium">{leadCount}</p>
+        </div>
+      </div>
+    </td>
+  </tr>
+);
+
+// ─── AdminPanel ───────────────────────────────────────────────────────────
 const AdminPanel = () => {
   const queryClient = useQueryClient();
   const { data: allProfiles, refetch } = useAllProfiles();
   const { data: allLeads }             = useLeadCounts();
   const { data: activityLogs }         = useActivityLogs();
 
-  const [activeTab,     setActiveTab]     = useState("overview");
-  const [search,        setSearch]        = useState("");
-  const [filterRole,    setFilterRole]    = useState("all");
-  const [filterPlan,    setFilterPlan]    = useState("all");
-  const [togglingId,    setTogglingId]    = useState<string | null>(null);
-  const [editingPlan,   setEditingPlan]   = useState<any>(null);
-  const [planForm,      setPlanForm]      = useState({ plan: "", subscription_status: "", trial_end: "" });
+  const [activeTab,    setActiveTab]    = useState("overview");
+  const [search,       setSearch]       = useState("");
+  const [filterRole,   setFilterRole]   = useState("all");
+  const [filterPlan,   setFilterPlan]   = useState("all");
+  const [togglingId,   setTogglingId]   = useState<string | null>(null);
+  const [editingPlan,  setEditingPlan]  = useState<any>(null);
+  const [expandedRow,  setExpandedRow]  = useState<string | null>(null);
+  const [planForm,     setPlanForm]     = useState({ plan: "", subscription_status: "", trial_end: "" });
+  const [notifTitle,   setNotifTitle]   = useState("");
+  const [notifBody,    setNotifBody]    = useState("");
+  const [notifSegment, setNotifSegment] = useState("all");
+  const [notifLink,    setNotifLink]    = useState("");
+  const [sending,      setSending]      = useState(false);
 
-  // Comunicado
-  const [notifTitle,    setNotifTitle]    = useState("");
-  const [notifBody,     setNotifBody]     = useState("");
-  const [notifSegment,  setNotifSegment]  = useState("all");
-  const [notifLink,     setNotifLink]     = useState("");
-  const [sending,       setSending]       = useState(false);
-
-  // ── Métricas ─────────────────────────────────────────────────────────────
+  // ── Métricas ──────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
     if (!allProfiles) return null;
-    const total      = allProfiles.length;
-    const ativos     = allProfiles.filter(p => p.subscription_status === "active").length;
-    const trial      = allProfiles.filter(p => p.subscription_status === "trial").length;
-    const expirados  = allProfiles.filter(p => p.subscription_status === "expired").length;
-    const imobs      = allProfiles.filter(p => p.role === "imobiliaria").length;
-    const corretores = allProfiles.filter(p => p.role === "corretor").length;
-
-    // MRR
-    const mrr = allProfiles
+    const total       = allProfiles.length;
+    const ativos      = allProfiles.filter(p => p.subscription_status === "active").length;
+    const trial       = allProfiles.filter(p => p.subscription_status === "trial").length;
+    const expirados   = allProfiles.filter(p => p.subscription_status === "expired").length;
+    const imobs       = allProfiles.filter(p => p.role === "imobiliaria").length;
+    const corretores  = allProfiles.filter(p => p.role === "corretor").length;
+    const mrr         = allProfiles
       .filter(p => p.subscription_status === "active" && p.plan)
       .reduce((acc, p) => acc + (PLAN_PRICES[p.plan!] ?? 0), 0);
-
-    // Churn (expirados / total)
-    const churn = total > 0 ? ((expirados / total) * 100).toFixed(1) : "0";
-
-    // Novos este mês
-    const thisMonthStart = startOfMonth(new Date());
+    const churn       = total > 0 ? ((expirados / total) * 100).toFixed(1) : "0";
     const novosEsteMes = allProfiles.filter(p =>
-      p.created_at && new Date(p.created_at) >= thisMonthStart
+      p.created_at && new Date(p.created_at) >= startOfMonth(new Date())
     ).length;
-
     return { total, ativos, trial, expirados, imobs, corretores, mrr, churn, novosEsteMes };
   }, [allProfiles]);
 
-  // ── Gráfico: cadastros por mês (últimos 6 meses) ──────────────────────
   const chartData = useMemo(() => {
     if (!allProfiles) return [];
     return Array.from({ length: 6 }, (_, i) => {
       const month = subMonths(new Date(), 5 - i);
-      const start = startOfMonth(month);
-      const end   = endOfMonth(month);
       const count = allProfiles.filter(p =>
-        p.created_at && isWithinInterval(new Date(p.created_at), { start, end })
+        p.created_at && isWithinInterval(new Date(p.created_at), { start: startOfMonth(month), end: endOfMonth(month) })
       ).length;
       return { mes: format(month, "MMM", { locale: ptBR }), cadastros: count };
     });
   }, [allProfiles]);
 
-  // ── Clientes mais ativos (por leads) ──────────────────────────────────
   const topClientes = useMemo(() => {
     if (!allProfiles || !allLeads) return [];
     const countMap: Record<string, number> = {};
-    allLeads.forEach(l => { if (l.assigned_to) countMap[l.assigned_to] = (countMap[l.assigned_to] ?? 0) + 1; });
+    allLeads.forEach((l: any) => { if (l.assigned_to) countMap[l.assigned_to] = (countMap[l.assigned_to] ?? 0) + 1; });
     return allProfiles
       .map(p => ({ ...p, leadCount: countMap[p.id] ?? 0 }))
       .sort((a, b) => b.leadCount - a.leadCount)
       .slice(0, 10);
   }, [allProfiles, allLeads]);
 
-  // ── Filtro clientes ───────────────────────────────────────────────────
   const filtered = useMemo(() => (allProfiles ?? []).filter(p => {
     const matchSearch = !search || p.full_name?.toLowerCase().includes(search.toLowerCase());
     const matchRole   = filterRole === "all" || p.role === filterRole;
@@ -186,18 +231,15 @@ const AdminPanel = () => {
     return matchSearch && matchRole && matchPlan;
   }), [allProfiles, search, filterRole, filterPlan]);
 
-  // ── Toggle status ─────────────────────────────────────────────────────
   const handleToggleStatus = async (p: any) => {
     setTogglingId(p.id);
     const newStatus = p.status === "ativo" ? "inativo" : "ativo";
     const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", p.id);
     if (error) toast.error("Erro ao alterar status");
     else toast.success(`Usuário ${newStatus === "ativo" ? "ativado" : "bloqueado"}!`);
-    refetch();
-    setTogglingId(null);
+    refetch(); setTogglingId(null);
   };
 
-  // ── Editar plano/trial ────────────────────────────────────────────────
   const openEditPlan = (p: any) => {
     setEditingPlan(p);
     setPlanForm({
@@ -215,24 +257,22 @@ const AdminPanel = () => {
       trial_end: planForm.trial_end ? new Date(planForm.trial_end).toISOString() : null,
     }).eq("id", editingPlan.id);
     if (error) { toast.error("Erro ao salvar"); return; }
-    toast.success("Plano atualizado!");
-    refetch();
-    setEditingPlan(null);
+    toast.success("Plano atualizado!"); refetch(); setEditingPlan(null);
   };
 
-  // ── Exportar CSV ──────────────────────────────────────────────────────
   const handleExportCSV = () => {
     if (!allProfiles) return;
-    const headers = ["Nome", "Role", "Plano", "Status Assinatura", "Status", "Cadastro"];
+    const headers = ["Nome", "E-mail", "Telefone", "CRECI", "Role", "Empresa", "Plano", "Assinatura", "Status", "Cadastro", "Atualização"];
     const rows = allProfiles.map(p => [
-      p.full_name ?? "",
+      p.full_name ?? "", p.email ?? "", p.phone ?? "", p.creci ?? "",
       roleLabels[p.role ?? ""] ?? p.role ?? "",
+      p.companies?.name ?? "",
       PLAN_LABELS[p.plan ?? ""] ?? p.plan ?? "",
-      p.subscription_status ?? "",
-      p.status ?? "",
+      p.subscription_status ?? "", p.status ?? "",
       p.created_at ? format(parseISO(p.created_at), "dd/MM/yyyy") : "",
+      p.updated_at ? format(parseISO(p.updated_at), "dd/MM/yyyy") : "",
     ]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+    const csv  = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a"); a.href = url;
@@ -241,7 +281,6 @@ const AdminPanel = () => {
     toast.success("CSV exportado!");
   };
 
-  // ── Enviar comunicado ─────────────────────────────────────────────────
   const handleSendNotification = async () => {
     if (!notifTitle.trim()) { toast.error("Informe o título"); return; }
     setSending(true);
@@ -257,14 +296,13 @@ const AdminPanel = () => {
         const { error } = await supabase.from("notifications" as any).insert(rows.slice(i, i + 50));
         if (error) throw error;
       }
-      toast.success(`Comunicado enviado para ${targets.length} usuário${targets.length > 1 ? "s" : ""}!`);
+      toast.success(`Enviado para ${targets.length} usuário${targets.length > 1 ? "s" : ""}!`);
       setNotifTitle(""); setNotifBody(""); setNotifLink(""); setNotifSegment("all");
     } catch (e: any) {
       toast.error("Erro: " + e.message);
     } finally { setSending(false); }
   };
 
-  // ── StatCard ──────────────────────────────────────────────────────────
   const StatCard = ({ label, value, sub, icon: Icon, color, prefix = "" }: any) => (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
@@ -312,24 +350,22 @@ const AdminPanel = () => {
           })}
         </div>
 
-        {/* ── ABA VISÃO GERAL ──────────────────────────────────────────────── */}
+        {/* ── VISÃO GERAL ──────────────────────────────────────────────────── */}
         {activeTab === "overview" && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {/* Stats grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="MRR Estimado"      value={metrics?.mrr.toLocaleString("pt-BR") ?? "0"} prefix="R$ " icon={DollarSign}   color="text-green-600" sub="planos ativos × preço" />
-              <StatCard label="Clientes ativos"   value={metrics?.ativos ?? 0}        icon={UserCheck}    color="text-blue-600"   sub={`${metrics?.trial ?? 0} em trial`} />
-              <StatCard label="Churn"             value={`${metrics?.churn ?? 0}%`}   icon={TrendingDown} color="text-red-500"    sub={`${metrics?.expirados ?? 0} expirados`} />
-              <StatCard label="Novos este mês"    value={metrics?.novosEsteMes ?? 0}  icon={TrendingUp}   color="text-[#7E22CE]"  sub="cadastros recentes" />
+              <StatCard label="MRR Estimado"     value={metrics?.mrr.toLocaleString("pt-BR") ?? "0"} prefix="R$ " icon={DollarSign}  color="text-green-600" sub="planos ativos × preço" />
+              <StatCard label="Clientes ativos"  value={metrics?.ativos ?? 0}       icon={UserCheck}   color="text-blue-600"  sub={`${metrics?.trial ?? 0} em trial`} />
+              <StatCard label="Churn"            value={`${metrics?.churn ?? 0}%`}  icon={TrendingDown} color="text-red-500"  sub={`${metrics?.expirados ?? 0} expirados`} />
+              <StatCard label="Novos este mês"   value={metrics?.novosEsteMes ?? 0} icon={TrendingUp}  color="text-[#7E22CE]" sub="cadastros recentes" />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Total de usuários" value={metrics?.total ?? 0}         icon={Users}        color="text-slate-600" />
-              <StatCard label="Imobiliárias"      value={metrics?.imobs ?? 0}         icon={Building2}    color="text-amber-600" />
-              <StatCard label="Corretores"        value={metrics?.corretores ?? 0}    icon={Users}        color="text-purple-600" />
-              <StatCard label="Em trial"          value={metrics?.trial ?? 0}         icon={Calendar}     color="text-orange-500" />
+              <StatCard label="Total usuários"  value={metrics?.total ?? 0}        icon={Users}     color="text-slate-600" />
+              <StatCard label="Imobiliárias"    value={metrics?.imobs ?? 0}        icon={Building2} color="text-amber-600" />
+              <StatCard label="Corretores"      value={metrics?.corretores ?? 0}   icon={Users}     color="text-purple-600" />
+              <StatCard label="Em trial"        value={metrics?.trial ?? 0}        icon={Calendar}  color="text-orange-500" />
             </div>
 
-            {/* Gráfico cadastros por mês */}
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-amber-500" /> Novos cadastros por mês
@@ -351,13 +387,12 @@ const AdminPanel = () => {
               </ResponsiveContainer>
             </div>
 
-            {/* Top clientes mais ativos */}
             <div className="bg-card border border-border rounded-xl p-5">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-amber-500" /> Clientes mais ativos (por leads)
               </h3>
               <div className="space-y-2">
-                {topClientes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum dado disponível.</p>}
+                {topClientes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum dado.</p>}
                 {topClientes.map((p, i) => (
                   <div key={p.id} className="flex items-center gap-3">
                     <span className="text-xs font-bold text-muted-foreground w-5 text-right">{i + 1}</span>
@@ -367,10 +402,8 @@ const AdminPanel = () => {
                         <span className="text-xs text-muted-foreground">{p.leadCount} leads</span>
                       </div>
                       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-400 rounded-full transition-all"
-                          style={{ width: `${Math.min(100, (p.leadCount / (topClientes[0]?.leadCount || 1)) * 100)}%` }}
-                        />
+                        <div className="h-full bg-amber-400 rounded-full"
+                          style={{ width: `${Math.min(100, (p.leadCount / (topClientes[0]?.leadCount || 1)) * 100)}%` }} />
                       </div>
                     </div>
                   </div>
@@ -380,7 +413,7 @@ const AdminPanel = () => {
           </motion.div>
         )}
 
-        {/* ── ABA CLIENTES ─────────────────────────────────────────────────── */}
+        {/* ── CLIENTES ─────────────────────────────────────────────────────── */}
         {activeTab === "clientes" && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <div className="flex flex-wrap gap-3">
@@ -406,13 +439,15 @@ const AdminPanel = () => {
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-xs text-muted-foreground">{filtered.length} usuário{filtered.length !== 1 ? "s" : ""}</p>
+
+            <p className="text-xs text-muted-foreground">{filtered.length} usuário{filtered.length !== 1 ? "s" : ""} — clique na linha para ver detalhes</p>
+
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/40">
-                      {["Nome", "Tipo", "Plano", "Assinatura", "Trial até", "Leads", "Status", "Ações"].map(h => (
+                      {["Nome", "Tipo", "Plano", "Assinatura", "Trial", "Leads", "Status", "Ações"].map(h => (
                         <th key={h} className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -421,52 +456,64 @@ const AdminPanel = () => {
                     {filtered.map(p => {
                       const isAtivo    = p.status === "ativo";
                       const isToggling = togglingId === p.id;
-                      const leadCount  = allLeads?.filter(l => l.assigned_to === p.id).length ?? 0;
+                      const leadCount  = allLeads?.filter((l: any) => l.assigned_to === p.id).length ?? 0;
                       const trialDays  = p.trial_end ? differenceInDays(parseISO(p.trial_end), new Date()) : null;
+                      const isExpanded = expandedRow === p.id;
                       return (
-                        <tr key={p.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3">
-                            <p className="font-medium text-sm">{p.full_name || "Sem nome"}</p>
-                            {p.phone && <p className="text-xs text-muted-foreground">{p.phone}</p>}
-                          </td>
-                          <td className="p-3 text-xs text-muted-foreground">{roleLabels[p.role ?? ""] ?? p.role}</td>
-                          <td className="p-3">
-                            <span className="text-xs font-medium">{PLAN_LABELS[p.plan ?? ""] ?? p.plan ?? "—"}</span>
-                            {p.plan && <p className="text-[10px] text-muted-foreground">R$ {PLAN_PRICES[p.plan] ?? 0}/mês</p>}
-                          </td>
-                          <td className="p-3">
-                            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase", planColors[p.subscription_status ?? ""] ?? "bg-slate-100 text-slate-600")}>
-                              {p.subscription_status ?? "—"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-xs text-muted-foreground">
-                            {trialDays !== null
-                              ? trialDays >= 0
-                                ? <span className="text-amber-600 font-medium">{trialDays}d restantes</span>
-                                : <span className="text-red-500">Expirado</span>
-                              : "—"}
-                          </td>
-                          <td className="p-3 text-sm font-semibold text-center">{leadCount}</td>
-                          <td className="p-3">
-                            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", isAtivo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")}>
-                              {isAtivo ? "Ativo" : "Bloqueado"}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => openEditPlan(p)} title="Editar plano"
-                                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button onClick={() => handleToggleStatus(p)} disabled={isToggling} title={isAtivo ? "Bloquear" : "Ativar"}
-                                className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                                {isToggling
-                                  ? <div className="w-4 h-4 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
-                                  : isAtivo ? <ToggleRight className="w-5 h-5 text-green-500" /> : <ToggleLeft className="w-5 h-5 text-slate-400" />}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                        <>
+                          <tr key={p.id}
+                            className="hover:bg-muted/30 transition-colors cursor-pointer"
+                            onClick={() => setExpandedRow(isExpanded ? null : p.id)}
+                          >
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                                <div>
+                                  <p className="font-medium text-sm">{p.full_name || "Sem nome"}</p>
+                                  {p.companies?.name && <p className="text-[10px] text-muted-foreground">{p.companies.name}</p>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">{roleLabels[p.role ?? ""] ?? p.role}</td>
+                            <td className="p-3">
+                              <span className="text-xs font-medium">{PLAN_LABELS[p.plan ?? ""] ?? p.plan ?? "—"}</span>
+                              {p.plan && <p className="text-[10px] text-muted-foreground">R$ {PLAN_PRICES[p.plan]}/mês</p>}
+                            </td>
+                            <td className="p-3">
+                              <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase", planColors[p.subscription_status ?? ""] ?? "bg-slate-100 text-slate-600")}>
+                                {p.subscription_status ?? "—"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-xs">
+                              {trialDays !== null
+                                ? trialDays >= 0
+                                  ? <span className="text-amber-600 font-medium">{trialDays}d restantes</span>
+                                  : <span className="text-red-500">Expirado</span>
+                                : "—"}
+                            </td>
+                            <td className="p-3 text-sm font-semibold text-center">{leadCount}</td>
+                            <td className="p-3">
+                              <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", isAtivo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")}>
+                                {isAtivo ? "Ativo" : "Bloqueado"}
+                              </span>
+                            </td>
+                            <td className="p-3" onClick={e => e.stopPropagation()}>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => openEditPlan(p)} title="Editar plano"
+                                  className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleToggleStatus(p)} disabled={isToggling} title={isAtivo ? "Bloquear" : "Ativar"}
+                                  className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                                  {isToggling
+                                    ? <div className="w-4 h-4 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+                                    : isAtivo ? <ToggleRight className="w-5 h-5 text-green-500" /> : <ToggleLeft className="w-5 h-5 text-slate-400" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && <ExpandedRow p={p} leadCount={leadCount} />}
+                        </>
                       );
                     })}
                   </tbody>
@@ -477,7 +524,7 @@ const AdminPanel = () => {
           </motion.div>
         )}
 
-        {/* ── ABA ATIVIDADE ─────────────────────────────────────────────────── */}
+        {/* ── ATIVIDADE ─────────────────────────────────────────────────────── */}
         {activeTab === "atividade" && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
             {activityLogs && activityLogs.length > 0 ? (
@@ -491,23 +538,22 @@ const AdminPanel = () => {
                     <p className="text-xs text-muted-foreground">
                       {log.profiles?.full_name ?? "Usuário"} · {log.created_at ? format(parseISO(log.created_at), "dd/MM/yyyy HH:mm") : ""}
                     </p>
-                    {log.details && <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>}
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex flex-col items-center justify-center py-16 bg-card border border-dashed border-border rounded-xl text-center">
                 <Activity className="w-10 h-10 text-muted-foreground/20 mb-3" />
-                <p className="font-medium text-sm">Nenhum log de atividade</p>
+                <p className="font-medium text-sm">Nenhum log de atividade ainda</p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                  Para habilitar logs, crie a tabela <code className="bg-muted px-1 rounded">activity_logs</code> no Supabase e registre ações nos hooks do sistema.
+                  Crie a tabela <code className="bg-muted px-1 rounded">activity_logs</code> no Supabase para habilitar.
                 </p>
               </div>
             )}
           </motion.div>
         )}
 
-        {/* ── ABA COMUNICADOS ───────────────────────────────────────────────── */}
+        {/* ── COMUNICADOS ───────────────────────────────────────────────────── */}
         {activeTab === "comunicados" && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             <div className="bg-card rounded-xl border border-border p-5 space-y-5 max-w-xl">

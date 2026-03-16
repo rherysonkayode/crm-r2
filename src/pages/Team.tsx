@@ -41,6 +41,7 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProfileWithFields {
   id: string;
@@ -58,8 +59,16 @@ interface ProfileWithFields {
   avatar_url?: string;
 }
 
+const PLAN_LIMITS: Record<string, number> = {
+  start:        1,
+  pro:          1,
+  profissional: 5,
+  enterprise:   20,
+};
+
 const Team = () => {
   const { profile, isImobiliaria } = useAuth();
+  const queryClient = useQueryClient();
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
   const {
     invites,
@@ -74,6 +83,7 @@ const Team = () => {
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [emails, setEmails] = useState("");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [manualForm, setManualForm] = useState({
     full_name: "",
     email: "",
@@ -95,15 +105,26 @@ const Team = () => {
     );
   }
 
+  const checkPlanLimit = () => {
+    const limit = PLAN_LIMITS[profile?.plan ?? "start"] ?? 1;
+    const total = profilesList.length;
+    if (total >= limit) {
+      toast.error(`Limite do plano atingido (${total}/${limit} corretores). Faça upgrade para adicionar mais.`);
+      return false;
+    }
+    return true;
+  };
+
   const handleGenerateLink = async () => {
+    if (!checkPlanLimit()) return;
     const result = await generateInviteLink.mutateAsync();
-    const link = `${window.location.origin}/convite/${result.token}`;
+    const link = `${window.location.origin}/#/convite/${result.token}`;
     setGeneratedLink(link);
-    navigator.clipboard.writeText(link);
-    toast.success("Link copiado para área de transferência!");
+    toast.success("Link gerado! Copie abaixo.");
   };
 
   const handleSendInvites = async () => {
+    if (!checkPlanLimit()) return;
     const emailList = emails
       .split(/[;,\n]/)
       .map(e => e.trim())
@@ -118,8 +139,14 @@ const Team = () => {
   };
 
   const handleCopyLink = (token: string) => {
-    const link = `${window.location.origin}/convite/${token}`;
+    const link = `${window.location.origin}/#/convite/${token}`;
     navigator.clipboard.writeText(link);
+    toast.success("Link copiado!");
+  };
+
+  const handleCopyGeneratedLink = () => {
+    if (!generatedLink) return;
+    navigator.clipboard.writeText(generatedLink);
     toast.success("Link copiado!");
   };
 
@@ -128,49 +155,123 @@ const Team = () => {
       toast.error("Nome e e-mail são obrigatórios");
       return;
     }
+    if (!profile?.company_id) {
+      toast.error("Sua conta não está vinculada a uma empresa.");
+      return;
+    }
+
+    if (!checkPlanLimit()) return;
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-
-      if (!token) {
-        toast.error("Sessão expirada. Faça login novamente.");
+      // Verifica se e-mail já existe
+      const { data: emailExists } = await supabase.rpc("email_already_exists" as any, { check_email: manualForm.email });
+      if (emailExists) {
+        toast.error("Este e-mail já possui uma conta no CRM R2.");
         return;
       }
 
-      const response = await fetch(
-        "https://ecmahLxwttfeatvpxwng.supabase.co/functions/v1/hyper-api",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            email: manualForm.email,
-            full_name: manualForm.full_name,
-            phone: manualForm.phone,
-            cpf: manualForm.cpf,
-            creci: manualForm.creci,
-            equipe: manualForm.equipe,
-            company_id: profile?.company_id,
-            invited_by: profile?.id,
-          }),
+      // Verifica telefone e CPF duplicados
+      if (manualForm.phone || manualForm.cpf) {
+        const { data: dupData } = await supabase.rpc("check_duplicate_fields" as any, {
+          check_phone: manualForm.phone || null,
+          check_cpf:   manualForm.cpf   || null,
+        });
+        if (dupData?.phone_exists) {
+          toast.error("Este telefone já está cadastrado no sistema.");
+          return;
         }
-      );
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error);
+        if (dupData?.cpf_exists) {
+          toast.error("Este CPF já está cadastrado no sistema.");
+          return;
+        }
       }
 
-      toast.success("Corretor cadastrado com sucesso!");
+      // Cria convite com dados pré-preenchidos
+      const token = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { error } = await supabase.from("team_invites" as any).insert({
+        company_id: profile.company_id,
+        created_by: profile.id,
+        email: manualForm.email,
+        token,
+        status: "pendente",
+        tipo: "manual",
+        expires_at: expiresAt.toISOString(),
+        // Dados extras pré-preenchidos
+        full_name: manualForm.full_name,
+        phone: manualForm.phone,
+        cpf: manualForm.cpf,
+        creci: manualForm.creci,
+        equipe: manualForm.equipe,
+      } as any);
+
+      if (error) throw error;
+
+      // Gera link e exibe
+      const inviteLink = `${window.location.origin}/#/convite/${token}`;
+      setGeneratedLink(inviteLink);
       setManualDialogOpen(false);
+      setInviteDialogOpen(true);
       setManualForm({ full_name: "", email: "", phone: "", cpf: "", creci: "", equipe: "" });
-      refetchProfiles();
+      toast.success("Convite criado! Envie o link para o corretor.", { duration: 6000 });
     } catch (error: any) {
-      toast.error("Erro ao criar usuário: " + error.message);
+      toast.error("Erro ao criar convite: " + error.message);
+    }
+  };
+
+  const handleAtivar = async (p: ProfileWithFields) => {
+    setTogglingId(p.id);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ status: "ativo" })
+        .eq("id", p.id);
+      if (error) throw error;
+      toast.success(`${p.full_name} ativado!`);
+      refetchProfiles();
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao ativar");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleRecusar = async (p: ProfileWithFields) => {
+    setTogglingId(p.id);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ company_id: null, status: "inativo" })
+        .eq("id", p.id);
+      if (error) throw error;
+      toast.success(`${p.full_name} removido da equipe.`);
+      refetchProfiles();
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao recusar");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleDesativar = async (p: ProfileWithFields) => {
+    setTogglingId(p.id);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ status: "inativo" })
+        .eq("id", p.id);
+      if (error) throw error;
+      toast.success(`${p.full_name} desativado.`);
+      refetchProfiles();
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao desativar");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -197,6 +298,7 @@ const Team = () => {
             <p className="text-muted-foreground">Gerencie os corretores e convites</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
+            {/* Cadastrar manualmente */}
             <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
@@ -211,52 +313,27 @@ const Team = () => {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Nome completo *</Label>
-                    <Input
-                      value={manualForm.full_name}
-                      onChange={(e) => setManualForm({ ...manualForm, full_name: e.target.value })}
-                      placeholder="João da Silva"
-                    />
+                    <Input value={manualForm.full_name} onChange={(e) => setManualForm({ ...manualForm, full_name: e.target.value })} placeholder="João da Silva" />
                   </div>
                   <div className="space-y-2">
                     <Label>E-mail *</Label>
-                    <Input
-                      type="email"
-                      value={manualForm.email}
-                      onChange={(e) => setManualForm({ ...manualForm, email: e.target.value })}
-                      placeholder="corretor@email.com"
-                    />
+                    <Input type="email" value={manualForm.email} onChange={(e) => setManualForm({ ...manualForm, email: e.target.value })} placeholder="corretor@email.com" />
                   </div>
                   <div className="space-y-2">
                     <Label>Telefone</Label>
-                    <Input
-                      value={manualForm.phone}
-                      onChange={(e) => setManualForm({ ...manualForm, phone: e.target.value })}
-                      placeholder="(21) 99999-9999"
-                    />
+                    <Input value={manualForm.phone} onChange={(e) => setManualForm({ ...manualForm, phone: e.target.value })} placeholder="(21) 99999-9999" />
                   </div>
                   <div className="space-y-2">
                     <Label>CPF</Label>
-                    <Input
-                      value={manualForm.cpf}
-                      onChange={(e) => setManualForm({ ...manualForm, cpf: e.target.value })}
-                      placeholder="123.456.789-00"
-                    />
+                    <Input value={manualForm.cpf} onChange={(e) => setManualForm({ ...manualForm, cpf: e.target.value })} placeholder="123.456.789-00" />
                   </div>
                   <div className="space-y-2">
                     <Label>CRECI</Label>
-                    <Input
-                      value={manualForm.creci}
-                      onChange={(e) => setManualForm({ ...manualForm, creci: e.target.value })}
-                      placeholder="CRECI 12345"
-                    />
+                    <Input value={manualForm.creci} onChange={(e) => setManualForm({ ...manualForm, creci: e.target.value })} placeholder="CRECI 12345" />
                   </div>
                   <div className="space-y-2">
                     <Label>Equipe</Label>
-                    <Input
-                      value={manualForm.equipe}
-                      onChange={(e) => setManualForm({ ...manualForm, equipe: e.target.value })}
-                      placeholder="Ex: Equipe Premium"
-                    />
+                    <Input value={manualForm.equipe} onChange={(e) => setManualForm({ ...manualForm, equipe: e.target.value })} placeholder="Ex: Equipe Premium" />
                   </div>
                   <Button onClick={handleManualSubmit} className="w-full bg-[#7E22CE] hover:bg-[#6b21a8]">
                     Cadastrar corretor
@@ -265,9 +342,10 @@ const Team = () => {
               </DialogContent>
             </Dialog>
 
+            {/* Convidar */}
             <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]">
                   <UserPlus className="w-4 h-4 mr-2" />
                   Convidar
                 </Button>
@@ -276,12 +354,40 @@ const Team = () => {
                 <DialogHeader>
                   <DialogTitle>Convidar para a equipe</DialogTitle>
                 </DialogHeader>
-                <Tabs defaultValue="manual" className="w-full">
+                <Tabs defaultValue="link" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="manual">Por e-mail</TabsTrigger>
                     <TabsTrigger value="link">Link de convite</TabsTrigger>
+                    <TabsTrigger value="email">Por e-mail</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="manual" className="space-y-4 py-4">
+
+                  <TabsContent value="link" className="space-y-4 py-4">
+                    {generatedLink ? (
+                      <div className="space-y-3">
+                        <Label>Link gerado — válido por 7 dias</Label>
+                        <div className="flex gap-2">
+                          <Input readOnly value={generatedLink} className="flex-1 text-xs font-mono" onClick={e => (e.target as HTMLInputElement).select()} />
+                          <Button variant="outline" size="icon" onClick={handleCopyGeneratedLink}>
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Selecione o link acima e copie manualmente, ou clique no botão de copiar.</p>
+                        <Button variant="ghost" className="w-full" onClick={handleGenerateLink}>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Gerar novo link
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">Gere um link de convite para compartilhar com o corretor por WhatsApp ou outro canal.</p>
+                        <Button onClick={handleGenerateLink} className="w-full bg-[#7E22CE] hover:bg-[#6b21a8]" disabled={generateInviteLink.isPending}>
+                          <LinkIcon className="w-4 h-4 mr-2" />
+                          {generateInviteLink.isPending ? "Gerando..." : "Gerar link de convite"}
+                        </Button>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="email" className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>E-mails (separados por ponto e vírgula)</Label>
                       <textarea
@@ -289,34 +395,12 @@ const Team = () => {
                         onChange={(e) => setEmails(e.target.value)}
                         placeholder="corretor@email.com; outro@email.com"
                         rows={4}
-                        className="w-full p-2 border rounded-md"
+                        className="w-full p-2 border rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#7E22CE]"
                       />
                     </div>
-                    <Button onClick={handleSendInvites} disabled={sendEmailInvite.isPending}>
+                    <Button onClick={handleSendInvites} disabled={sendEmailInvite.isPending} className="w-full bg-[#7E22CE] hover:bg-[#6b21a8]">
                       {sendEmailInvite.isPending ? "Enviando..." : "Enviar convites"}
                     </Button>
-                  </TabsContent>
-                  <TabsContent value="link" className="space-y-4 py-4">
-                    {generatedLink ? (
-                      <div className="space-y-2">
-                        <Label>Link gerado (válido por 7 dias)</Label>
-                        <div className="flex gap-2">
-                          <Input readOnly value={generatedLink} className="flex-1" />
-                          <Button variant="outline" size="icon" onClick={() => handleCopyLink(generatedLink.split('/').pop()!)}>
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <Button variant="ghost" className="w-full" onClick={handleGenerateLink}>
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Gerar novo link
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button onClick={handleGenerateLink} className="w-full">
-                        <LinkIcon className="w-4 h-4 mr-2" />
-                        Gerar link de convite
-                      </Button>
-                    )}
                   </TabsContent>
                 </Tabs>
               </DialogContent>
@@ -324,7 +408,8 @@ const Team = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {/* Mini stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de corretores</p>
             <p className="text-3xl font-bold">{profilesList.length}</p>
@@ -342,24 +427,21 @@ const Team = () => {
         <Tabs defaultValue="membros" className="w-full">
           <TabsList className="mb-4 flex-wrap">
             <TabsTrigger value="membros">Membros ativos</TabsTrigger>
-            <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
+            <TabsTrigger value="pendentes">Pendentes {inativos > 0 && <span className="ml-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{inativos}</span>}</TabsTrigger>
             <TabsTrigger value="convites">Convites enviados</TabsTrigger>
           </TabsList>
 
+          {/* Membros ativos */}
           <TabsContent value="membros">
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[150px]">Nome</TableHead>
-                    <TableHead className="min-w-[200px]">E-mail</TableHead>
                     <TableHead className="min-w-[120px]">Telefone</TableHead>
-                    <TableHead className="min-w-[120px]">CPF</TableHead>
                     <TableHead className="min-w-[120px]">CRECI</TableHead>
-                    <TableHead className="min-w-[120px]">Equipe</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
-                    <TableHead className="min-w-[120px]">Ativado em</TableHead>
-                    <TableHead className="min-w-[100px]">Ações</TableHead>
+                    <TableHead className="min-w-[120px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -370,25 +452,17 @@ const Team = () => {
                           {p.full_name}
                         </Link>
                       </TableCell>
-                      <TableCell>{p.email || '-'}</TableCell>
                       <TableCell>{p.phone || '-'}</TableCell>
-                      <TableCell>{p.cpf || '-'}</TableCell>
                       <TableCell>{p.creci || '-'}</TableCell>
-                      <TableCell>{p.equipe || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant="default">Ativo</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {p.activated_at ? format(new Date(p.activated_at), "dd/MM/yyyy") : "-"}
-                      </TableCell>
+                      <TableCell><Badge variant="default" className="bg-green-100 text-green-700">Ativo</Badge></TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button size="sm" variant="ghost" asChild>
-                            <Link to={`/team/${p.id}`}>
-                              <Pencil className="w-3 h-3" />
-                            </Link>
+                            <Link to={`/team/${p.id}`}><Pencil className="w-3 h-3" /></Link>
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-xs text-red-600">
+                          <Button size="sm" variant="ghost" className="text-xs text-red-600"
+                            disabled={togglingId === p.id}
+                            onClick={() => handleDesativar(p)}>
                             <XCircle className="w-3 h-3 mr-1" />
                             Desativar
                           </Button>
@@ -398,7 +472,7 @@ const Team = () => {
                   ))}
                   {ativos === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                         Nenhum corretor ativo.
                       </TableCell>
                     </TableRow>
@@ -408,19 +482,17 @@ const Team = () => {
             </div>
           </TabsContent>
 
+          {/* Pendentes */}
           <TabsContent value="pendentes">
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[150px]">Nome</TableHead>
-                    <TableHead className="min-w-[200px]">E-mail</TableHead>
                     <TableHead className="min-w-[120px]">Telefone</TableHead>
-                    <TableHead className="min-w-[120px]">CPF</TableHead>
                     <TableHead className="min-w-[120px]">CRECI</TableHead>
-                    <TableHead className="min-w-[120px]">Equipe</TableHead>
-                    <TableHead className="min-w-[120px]">Data de cadastro</TableHead>
-                    <TableHead className="min-w-[100px]">Ações</TableHead>
+                    <TableHead className="min-w-[120px]">Cadastro</TableHead>
+                    <TableHead className="min-w-[150px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -431,25 +503,21 @@ const Team = () => {
                           {p.full_name}
                         </Link>
                       </TableCell>
-                      <TableCell>{p.email || '-'}</TableCell>
                       <TableCell>{p.phone || '-'}</TableCell>
-                      <TableCell>{p.cpf || '-'}</TableCell>
                       <TableCell>{p.creci || '-'}</TableCell>
-                      <TableCell>{p.equipe || '-'}</TableCell>
                       <TableCell>
                         {p.invited_at ? format(new Date(p.invited_at), "dd/MM/yyyy") : "-"}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" asChild>
-                            <Link to={`/team/${p.id}`}>
-                              <Pencil className="w-3 h-3" />
-                            </Link>
+                          <Button size="sm" variant="default" className="text-xs bg-green-600 hover:bg-green-700"
+                            disabled={togglingId === p.id}
+                            onClick={() => handleAtivar(p)}>
+                            {togglingId === p.id ? "..." : "Ativar"}
                           </Button>
-                          <Button size="sm" variant="default" className="text-xs">
-                            Ativar
-                          </Button>
-                          <Button size="sm" variant="destructive" className="text-xs">
+                          <Button size="sm" variant="destructive" className="text-xs"
+                            disabled={togglingId === p.id}
+                            onClick={() => handleRecusar(p)}>
                             Recusar
                           </Button>
                         </div>
@@ -458,7 +526,7 @@ const Team = () => {
                   ))}
                   {inativos === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                         Nenhum corretor pendente.
                       </TableCell>
                     </TableRow>
@@ -468,6 +536,7 @@ const Team = () => {
             </div>
           </TabsContent>
 
+          {/* Convites */}
           <TabsContent value="convites">
             <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
               <Table>
@@ -484,26 +553,18 @@ const Team = () => {
                 <TableBody>
                   {invites?.map((invite) => (
                     <TableRow key={invite.id}>
+                      <TableCell>{invite.tipo === 'manual' ? 'E-mail' : 'Link'}</TableCell>
                       <TableCell>
-                        {invite.tipo === 'manual' ? 'E-mail' : 'Link'}
-                      </TableCell>
-                      <TableCell>
-                        {invite.tipo === 'manual' ? invite.email : (
-                          <button
-                            onClick={() => handleCopyLink(invite.token)}
-                            className="flex items-center gap-1 text-purple-600 hover:underline"
-                          >
+                        {invite.email ? invite.email : (
+                          <button onClick={() => handleCopyLink(invite.token)}
+                            className="flex items-center gap-1 text-purple-600 hover:underline text-sm">
                             <LinkIcon className="w-3 h-3" />
                             Copiar link
                           </button>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {getStatusBadge(invite.status, invite.expires_at)}
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(invite.created_at), "dd/MM/yyyy")}
-                      </TableCell>
+                      <TableCell>{getStatusBadge(invite.status, invite.expires_at)}</TableCell>
+                      <TableCell>{format(new Date(invite.created_at), "dd/MM/yyyy")}</TableCell>
                       <TableCell>
                         {invite.expires_at ? formatDistanceToNow(new Date(invite.expires_at), { locale: ptBR, addSuffix: true }) : '-'}
                       </TableCell>

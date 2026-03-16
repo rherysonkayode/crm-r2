@@ -51,7 +51,7 @@ const useTeamData = (companyId: string | null | undefined) => {
       // Busca corretores + seus leads
       const { data: corretores, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, phone, avatar_url, status, created_at, role")
+        .select("id, full_name, phone, avatar_url, status, created_at, role")
         .eq("company_id", companyId)
         .eq("role", "corretor")
         .order("created_at", { ascending: false });
@@ -114,6 +114,7 @@ const Settings = () => {
   const [sendingInvite, setSendingInvite] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<any>(null);
   const [togglingId, setTogglingId]     = useState<string | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 
   // ── Handlers Perfil ──────────────────────────────────────────────────────
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,29 +224,66 @@ const Settings = () => {
     if (!inviteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
       toast.error("Informe um e-mail valido"); return;
     }
+    if (!profile?.company_id) {
+      toast.error("Sua conta nao esta vinculada a uma empresa. Contate o suporte."); return;
+    }
     setSendingInvite(true);
     try {
-      // Gera link de convite via Supabase Auth (magic link)
-      const inviteLink = `${window.location.origin}/#/cadastro?company_id=${profile?.company_id}&invite_email=${encodeURIComponent(inviteEmail)}`;
-      // Envia e-mail via Supabase Admin (requer Edge Function) ou apenas copia o link
-      // Por ora: copia link + notifica para enviar manualmente
+      // Verifica se o e-mail já tem conta no sistema
+      const { data: alreadyExists } = await supabase.rpc("email_already_exists" as any, { check_email: inviteEmail });
+      if (alreadyExists) {
+        toast.error("Este e-mail já possui uma conta no CRM R2. O convite só pode ser enviado para novos usuários.");
+        setSendingInvite(false);
+        return;
+      }
+
+      const token = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      const { error } = await supabase.from("team_invites").insert({
+        company_id: profile.company_id,
+        created_by: profile.id,
+        email:      inviteEmail,
+        token,
+        status:     "pendente",
+        tipo:       "manual",
+        expires_at: expiresAt.toISOString(),
+      } as any);
+      if (error) throw error;
+      const inviteLink = `${window.location.origin}/#/convite/${token}`;
       await navigator.clipboard.writeText(inviteLink);
-      toast.success("Link de convite copiado! Envie ao corretor.", { duration: 5000 });
+      toast.success("Convite criado! Link copiado — envie ao corretor.", { duration: 6000 });
       setInviteEmail("");
-    } catch {
-      toast.error("Erro ao gerar convite");
+    } catch (e: any) {
+      toast.error("Erro ao gerar convite: " + e.message);
     } finally {
       setSendingInvite(false);
     }
   };
 
   const handleCopyInviteLink = async () => {
-    const link = `${window.location.origin}/#/cadastro?company_id=${profile?.company_id}`;
+    if (!profile?.company_id) {
+      toast.error("Sua conta nao esta vinculada a uma empresa."); return;
+    }
     try {
-      await navigator.clipboard.writeText(link);
-      toast.success("Link de convite copiado!");
-    } catch {
-      toast.error("Nao foi possivel copiar o link");
+      const token = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      const { error } = await supabase.from("team_invites").insert({
+        company_id: profile.company_id,
+        created_by: profile.id,
+        email:      null,
+        token,
+        status:     "pendente",
+        tipo:       "link",
+        expires_at: expiresAt.toISOString(),
+      } as any);
+      if (error) throw error;
+      const link = `${window.location.origin}/#/convite/${token}`;
+      setGeneratedLink(link);
+      toast.success("Link gerado! Copie abaixo.", { duration: 4000 });
+    } catch (e: any) {
+      toast.error("Erro ao gerar link: " + e.message);
     }
   };
 
@@ -256,7 +294,7 @@ const Settings = () => {
       const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", corretor.id);
       if (error) throw error;
       toast.success(`Corretor ${newStatus === "ativo" ? "ativado" : "desativado"}!`);
-      queryClient.invalidateQueries({ queryKey: ["team"] });
+      queryClient.invalidateQueries({ queryKey: ["team", profile?.company_id] });
     } catch (error: any) {
       toast.error(error.message || "Erro ao alterar status");
     } finally {
@@ -273,7 +311,7 @@ const Settings = () => {
       const { error } = await supabase.from("profiles").update({ company_id: null, status: "inativo" }).eq("id", removeTarget.id);
       if (error) throw error;
       toast.success(`${removeTarget.full_name} foi removido da equipe.`);
-      queryClient.invalidateQueries({ queryKey: ["team"] });
+      queryClient.invalidateQueries({ queryKey: ["team", profile?.company_id] });
       queryClient.invalidateQueries({ queryKey: ["leads"] });
     } catch (error: any) {
       toast.error(error.message || "Erro ao remover corretor");
@@ -538,6 +576,18 @@ const Settings = () => {
                     <Copy className="w-4 h-4" />
                     Copiar link geral de cadastro
                   </Button>
+                  {generatedLink && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Link gerado — copie e envie ao corretor:</Label>
+                      <div className="flex gap-2">
+                        <Input value={generatedLink} readOnly className="text-xs font-mono bg-slate-50" onClick={e => (e.target as HTMLInputElement).select()} />
+                        <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(generatedLink); toast.success("Copiado!"); }}>
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <button onClick={() => setGeneratedLink(null)} className="text-xs text-muted-foreground hover:text-foreground">Fechar</button>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     O corretor acessa o link, cria sua conta e fica automaticamente vinculado à sua imobiliaria.
                   </p>
@@ -598,7 +648,7 @@ const Settings = () => {
                                     {isAtivo ? "Ativo" : "Inativo"}
                                   </span>
                                 </div>
-                                <p className="text-xs text-muted-foreground truncate">{corretor.email}</p>
+                                {corretor.phone && <p className="text-xs text-muted-foreground truncate">{corretor.phone}</p>}
                                 {/* Métricas rápidas */}
                                 <div className="flex gap-3 mt-1.5">
                                   <span className="flex items-center gap-1 text-[11px] text-slate-500">
@@ -643,9 +693,7 @@ const Settings = () => {
                                         <Phone className="w-3.5 h-3.5 mr-2" />WhatsApp
                                       </DropdownMenuItem>
                                     )}
-                                    <DropdownMenuItem onClick={() => window.open(`mailto:${corretor.email}`)}>
-                                      <Mail className="w-3.5 h-3.5 mr-2" />Enviar e-mail
-                                    </DropdownMenuItem>
+
                                     <DropdownMenuItem
                                       className="text-red-500 focus:text-red-600 focus:bg-red-50"
                                       onClick={() => setRemoveTarget(corretor)}

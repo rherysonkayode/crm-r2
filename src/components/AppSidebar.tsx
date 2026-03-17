@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Users, Building2, GitBranch, LogOut,
   ChevronLeft, ChevronRight, UserPlus, Settings,
   CalendarDays, Calculator, PlusCircle, X, CreditCard, Crown,
+  HandCoins,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -40,6 +41,7 @@ export const AppSidebar = ({ onClose }: AppSidebarProps) => {
     { icon: Building2,      label: "Imóveis",        path: "/properties",  visible: !isSuperAdmin },
     { icon: CalendarDays,   label: "Calendário",     path: "/calendar",    visible: !isSuperAdmin },
     { icon: GitBranch,      label: "Funil",          path: "/funnel",      visible: !isSuperAdmin },
+    { icon: HandCoins,      label: "Vendas",         path: "/sales",       visible: !isSuperAdmin },
     { icon: PlusCircle,     label: "Anuncie Comigo", path: "/advertise",   visible: !isSuperAdmin },
     { icon: Calculator,     label: "Calculadoras",   path: "/calculators", visible: !isSuperAdmin },
     { icon: UserPlus,       label: "Equipe",         path: "/team",        visible: !isSuperAdmin && isImobiliaria },

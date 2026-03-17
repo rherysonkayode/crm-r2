@@ -22,6 +22,8 @@ import DealCommissionsEdit from "./pages/DealCommissionsEdit";
 import Settings from "./pages/Settings";
 import Calculators from "./pages/Calculators";
 import Advertise from "./pages/Advertise";
+import Sales from "./pages/Sales";
+import PropertyPublic from "./pages/PropertyPublic";
 import Termos from "./pages/Termos";
 import Privacidade from "./pages/Privacidade";
 import FAQ from "./pages/FAQ";
@@ -136,6 +138,8 @@ const App = () => (
               <Route path="/privacidade"           element={<Privacidade />} />
               <Route path="/faq"                   element={<FAQ />} />
               <Route path="/convite/:token"        element={<Convite />} />
+              <Route path="/imovel/:id"             element={<PropertyPublic />} />
+              <Route path="/imovel/:id"             element={<PropertyPublic />} />
 
               {/* Painel exclusivo do gestor */}
               <Route path="/admin"                 element={<SuperAdminRoute><AdminPanel /></SuperAdminRoute>} />
@@ -153,6 +157,7 @@ const App = () => (
               <Route path="/settings"              element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/calculators"           element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
               <Route path="/advertise"             element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
+              <Route path="/sales"                element={<ProtectedRoute><Sales /></ProtectedRoute>} />
 
               <Route path="*"                      element={<NotFound />} />
             </Routes>

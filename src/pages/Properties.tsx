@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Pencil, MapPin, BedDouble, Maximize,
-  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal,
+  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -196,28 +196,40 @@ const Properties = () => {
 
   const handleRegistrarVenda = async () => {
     if (!viewing) return;
-    if (!vendaForm.lead_id || !vendaForm.corretor_id || !vendaForm.valor) {
+    // Para corretor independente, corretor_id é ele mesmo
+    const corretorId = isCorretor ? profile!.id : vendaForm.corretor_id;
+    if (!vendaForm.lead_id || !corretorId || !vendaForm.valor) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const response = await fetch("https://ecmahLxwttfeatvpxwng.supabase.co/functions/v1/hyper-api/deals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          lead_id: vendaForm.lead_id, property_id: viewing.id,
-          value: parseFloat(vendaForm.valor), stage: "fechado",
-          company_id: profile?.company_id, created_by: profile?.id,
-          assigned_to: vendaForm.corretor_id,
-        }),
+      // Criar deal direto no banco
+      const { error: dealError } = await supabase.from("deals").insert({
+        lead_id:     vendaForm.lead_id,
+        property_id: viewing.id,
+        value:       parseFloat(vendaForm.valor),
+        stage:       "fechado",
+        company_id:  profile?.company_id ?? null,
+        created_by:  profile!.id,
+        assigned_to: corretorId,
       });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.error);
+      if (dealError) throw dealError;
+
+      // Atualizar status do imóvel para vendido
+      const { error: propError } = await supabase
+        .from("properties")
+        .update({ status: "vendido" })
+        .eq("id", viewing.id);
+      if (propError) throw propError;
+
+      // Atualizar status do lead para convertido
+      await supabase.from("leads").update({ status: "convertido" }).eq("id", vendaForm.lead_id);
+
       toast.success("Venda registrada com sucesso!");
       setVendaDialogOpen(false);
       setVendaForm({ lead_id: "", corretor_id: "", valor: "", data: new Date().toISOString().split("T")[0] });
       queryClient.invalidateQueries({ queryKey: ["properties"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
       setViewDialogOpen(false);
     } catch (error: any) {
       toast.error("Erro ao registrar venda: " + error.message);
@@ -511,21 +523,28 @@ const Properties = () => {
                       {prop.bedrooms && <span className="flex items-center gap-1"><BedDouble className="w-3 h-3 shrink-0" />{prop.bedrooms}q</span>}
                       {prop.area && <span className="flex items-center gap-1"><Maximize className="w-3 h-3 shrink-0" />{prop.area}m²</span>}
                     </div>
-                    {/* Botões — só se tiver permissão */}
-                    {(canEdit || canDelete) && (
-                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                        {canEdit && (
-                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={(e) => { e.stopPropagation(); openEdit(prop); }}>
-                            <Pencil className="w-3 h-3 mr-1" />Editar
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(prop.id); }}>
-                            <Trash2 className="w-3 h-3 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                    {/* Botões */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="outline" size="sm" className="flex-1 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const link = `${window.location.origin}/#/imovel/${prop.id}`;
+                          navigator.clipboard.writeText(link);
+                          toast.success("Link copiado!");
+                        }}>
+                        <Share2 className="w-3 h-3" />Link
+                      </Button>
+                      {canEdit && (
+                        <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={(e) => { e.stopPropagation(); openEdit(prop); }}>
+                          <Pencil className="w-3 h-3 mr-1" />Editar
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(prop.id); }}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               );
@@ -623,8 +642,8 @@ const Properties = () => {
                       <Trash2 className="w-4 h-4 mr-2" />Excluir
                     </Button>
                   )}
-                  {/* Registrar venda: só imobiliária e se não estiver vendido */}
-                  {isImobiliaria && viewing.status !== "vendido" && (
+                  {/* Registrar venda: imobiliária ou corretor dono do imóvel */}
+                  {(isImobiliaria || (isCorretor && viewing.created_by === profile?.id)) && viewing.status !== "vendido" && (
                     <Button className="bg-green-600 hover:bg-green-700"
                       onClick={() => { setVendaForm({ ...vendaForm, valor: viewing.price?.toString() || "" }); setVendaDialogOpen(true); }}>
                       <DollarSign className="w-4 h-4 mr-2" />Registrar venda
@@ -648,16 +667,24 @@ const Properties = () => {
                   <SelectContent>{leads?.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Corretor responsável *</Label>
-                <Select value={vendaForm.corretor_id} onValueChange={(v) => setVendaForm({ ...vendaForm, corretor_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um corretor" /></SelectTrigger>
-                  <SelectContent>
-                    {/* useProfiles já retorna só corretores, sem precisar filtrar aqui */}
-                    {profiles?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Corretor independente é sempre ele mesmo — campo oculto */}
+              {isImobiliaria && (
+                <div className="space-y-2">
+                  <Label>Corretor responsável *</Label>
+                  <Select value={vendaForm.corretor_id} onValueChange={(v) => setVendaForm({ ...vendaForm, corretor_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione um corretor" /></SelectTrigger>
+                    <SelectContent>
+                      {profiles?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {isCorretor && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">Corretor responsável</p>
+                  <p className="text-sm font-medium">{profile?.full_name}</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Valor da venda *</Label>
                 <Input type="number" value={vendaForm.valor} onChange={(e) => setVendaForm({ ...vendaForm, valor: e.target.value })} placeholder="R$ 0,00" />

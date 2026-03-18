@@ -179,7 +179,7 @@ const Funnel = () => {
   return (
     <AppLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Funil de Vendas</h1>
             <p className="text-muted-foreground">
@@ -248,19 +248,18 @@ const Funnel = () => {
         </div>
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Total de Negocios</p>
             <p className="text-3xl font-bold">{totalNegocios}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Pipeline Ativo</p>
-            <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalPipeline)}</p>
+            <p className="text-lg sm:text-2xl font-bold text-purple-600 break-all">{formatCurrency(totalPipeline)}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fechados</p>
-            <p className="text-3xl font-bold text-green-600">{deals?.filter(d => d.stage === "fechado").length ?? 0}</p>
-            {totalFechado > 0 && <p className="text-xs text-muted-foreground mt-1">{formatCurrency(totalFechado)}</p>}
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalFechado)}</p>
           </div>
         </div>
 

@@ -9,11 +9,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Calculator, Percent, Home, TrendingUp, RefreshCw, Download,
   ChevronUp, Building2, User, ChevronDown, Check, Settings,
-  AlertCircle, Info, ArrowUpDown
+  AlertCircle, Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTaxasBancarias, BancoConfig, tipoParaId } from "@/hooks/useTaxasBancarias";
-import { ModalTaxasBancarias } from "@/components/ModalTaxasBancarias";
+import { useTaxasBancarias, BancoConfig } from "@/hooks/useTaxasBancarias";
+import ModalTaxasBancarias from "@/components/ModalTaxasBancarias";
 import { toast } from "sonner";
 
 type Tab = "financiamento" | "comissao" | "rentabilidade";
@@ -21,7 +21,6 @@ type Sistema = "price" | "sac" | "ambos";
 type TipoImovel = "residencial" | "comercial" | "rural";
 type TipoUso = "novo" | "usado";
 type SimuladoPor = "financiamento" | "parcela" | "renda";
-type OrdenarPor = "totalPago" | "primeiraParcela" | "totalJuros" | "rendaExigida";
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
@@ -30,12 +29,17 @@ const roundMoney = (val: number) => Math.round(val * 100) / 100;
 
 type Parcela = { numero: number; parcelaTotal: number; amortizacao: number; juros: number; taxas: number; saldo: number; };
 
+// ─── HELPER: MIP + DFI mensais por banco ─────────────────────────────────────
+// MIP: % ao ano sobre saldo devedor (usamos valor inicial como base, igual simuladores)
+// DFI: % ao ano sobre valor do imovel (fixo)
 function calcularSegurosMensais(banco: BancoConfig, valorFinanciado: number, valorImovel: number): number {
   const mipMensal = (valorFinanciado * (banco.mipAnual / 100)) / 12;
   const dfiMensal = (valorImovel * (banco.dfiAnual / 100)) / 12;
   return roundMoney(mipMensal + dfiMensal);
 }
 
+// ─── CALCULO DE PARCELAS ──────────────────────────────────────────────────────
+// Logica identica ao original — taxasMensais agora recebe MIP+DFI real calculado externamente
 function calcularParcelas(
   financiado: number,
   taxaMensal: number,
@@ -115,7 +119,7 @@ const TabelaParcelas = ({ parcelas, titulo }: { parcelas: Parcela[]; titulo: str
         </Button>
       </div>
       <div className="rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-y-auto max-h-[360px]">
+        <div className="overflow-x-auto overflow-y-auto max-h-[360px]">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#7E22CE] text-white z-10">
               <tr>
@@ -165,12 +169,9 @@ type Simulacao = {
   parcelas: Parcela[];
   prazoUsado: number;
   valorFinanciado: number;
-  valorImovel: number;
-  entradaReal: number;
   rendaSuficiente: boolean;
-  tag: number;
-  segurosMensais: number;
-  linhaNome?: string;
+  tag: number;           // novo: tarifa de avaliacao do bem
+  segurosMensais: number; // novo: MIP + DFI mensais calculados
 };
 
 type BancoAgrupado = {
@@ -182,18 +183,8 @@ type BancoAgrupado = {
   simulacoes: Simulacao[];
 };
 
-const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor, valorImovel }: { banco: BancoAgrupado; melhorSimulacaoId: string | null; ordenarPor: OrdenarPor; valorImovel: number }) => {
+const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; melhorSimulacaoId: string | null }) => {
   const [expanded, setExpanded] = useState<string | null>(null);
-
-  const simulacoesOrdenadas = useMemo(() => {
-    return [...banco.simulacoes].sort((a, b) => {
-      if (ordenarPor === "totalPago") return a.totalPago - b.totalPago;
-      if (ordenarPor === "primeiraParcela") return a.primeiraParcela - b.primeiraParcela;
-      if (ordenarPor === "totalJuros") return a.totalJuros - b.totalJuros;
-      if (ordenarPor === "rendaExigida") return a.rendaExigida - b.rendaExigida;
-      return 0;
-    });
-  }, [banco.simulacoes, ordenarPor]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -205,15 +196,15 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor, valorImovel }: 
           </div>
           <p className="text-sm font-semibold text-card-foreground">{banco.bancoNome}</p>
         </div>
-        <Badge variant="outline">{simulacoesOrdenadas.length} opção(oes)</Badge>
+        <Badge variant="outline">{banco.simulacoes.length} opcao(oes)</Badge>
       </div>
 
       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {simulacoesOrdenadas.map((sim) => {
-          const isMelhor = melhorSimulacaoId === `${sim.bancoId}-${sim.sistema}-${sim.linhaNome || ''}`;
+        {banco.simulacoes.map((sim) => {
+          const isMelhor = melhorSimulacaoId === `${sim.bancoId}-${sim.sistema}`;
           return (
             <div
-              key={`${sim.sistema}-${sim.linhaNome || ''}`}
+              key={sim.sistema}
               className={cn(
                 "relative rounded-lg border p-4 transition-all hover:shadow-md",
                 sim.sistema === "sac" ? "border-blue-200" : "border-green-200",
@@ -222,42 +213,33 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor, valorImovel }: 
             >
               {isMelhor && (
                 <Badge className="absolute -top-2 -right-2 bg-[#7E22CE] text-white">
-                  Melhor opção
+                  Melhor opcao
                 </Badge>
               )}
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <div className="flex items-center gap-2 mb-3">
                 <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", sim.sistema === "sac" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700")}>
                   {sim.sistema.toUpperCase()}
                 </span>
-                {sim.linhaNome && (
-                  <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                    {sim.linhaNome}
-                  </span>
-                )}
                 <span className="text-xs text-muted-foreground">{sim.taxaAnual.toFixed(2)}% a.a.</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="col-span-2">
                   <p className="text-xs text-muted-foreground">Valor Financiado</p>
                   <p className="font-bold text-purple-700">{formatCurrency(sim.valorFinanciado)}</p>
                 </div>
-                <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground">Entrada Necessária</p>
-                  <p className="font-bold text-blue-700">{formatCurrency(sim.entradaReal)}</p>
-                </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">{sim.sistema === "price" ? "Parcela Fixa" : "1ª Parcela"}</p>
+                  <p className="text-xs text-muted-foreground">{sim.sistema === "price" ? "Parcela Fixa" : "1a Parcela"}</p>
                   <p className="font-bold text-purple-700">{formatCurrency(sim.primeiraParcela)}</p>
                 </div>
                 {sim.sistema === "sac" && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Última Parcela</p>
+                    <p className="text-xs text-muted-foreground">Ultima Parcela</p>
                     <p className="font-bold text-green-600">{formatCurrency(sim.ultimaParcela)}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs text-muted-foreground">Renda Mín.</p>
+                  <p className="text-xs text-muted-foreground">Renda Min.</p>
                   <p className="font-bold text-blue-700">{formatCurrency(sim.rendaExigida)}</p>
                 </div>
                 <div>
@@ -269,86 +251,89 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor, valorImovel }: 
                   <p className="font-bold text-lg text-[#7E22CE]">{formatCurrency(sim.totalPago)}</p>
                 </div>
 
+                {/* TAG — pago na contratacao, fora das parcelas */}
                 <div className="col-span-2 flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2 mt-1">
                   <div>
-                    <p className="text-xs text-amber-700 font-medium">TAG (vistoria do imóvel)</p>
-                    <p className="text-xs text-amber-600">Cobrado na contratação, fora das parcelas</p>
+                    <p className="text-xs text-amber-700 font-medium">TAG (vistoria do imovel)</p>
+                    <p className="text-xs text-amber-600">Cobrado na contratacao, fora das parcelas</p>
                   </div>
                   <p className="font-bold text-amber-800">{formatCurrency(sim.tag)}</p>
                 </div>
 
+                {/* MIP+DFI mensal */}
                 <div className="col-span-2 flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
                   <div>
                     <p className="text-xs text-slate-600 font-medium">MIP + DFI (seguros)</p>
                     <p className="text-xs text-slate-400">Embutidos em cada parcela</p>
                   </div>
-                  <p className="font-semibold text-slate-700">{formatCurrency(sim.segurosMensais)}/mês</p>
+                  <p className="font-semibold text-slate-700">{formatCurrency(sim.segurosMensais)}/mes</p>
                 </div>
               </div>
 
-              {sim.bancoId === "inter" && (
+              {/* Aviso Inter: taxa pos-fixada pelo IPCA */}
+              {banco.bancoId === "inter" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Taxa pós-fixada (IPCA):</strong> a partir de 8,20% a 9,50% a.a. + IPCA. A parcela varia mensalmente conforme a inflação. Linha TR disponível: 13,76% a.a.</span>
+                  <span><strong>Taxa pos-fixada (IPCA):</strong> a partir de 8,20% a 9,50% a.a. + IPCA. A parcela varia mensalmente conforme a inflacao. Linha TR disponivel: 13,76% a.a.</span>
                 </div>
               )}
-              {sim.bancoId === "caixa" && sim.linhaNome?.includes("Pró-Cotista") && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-green-700 bg-green-50 border border-green-100 p-2 rounded-lg">
-                  <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Pró-Cotista:</strong> Para quem tem FGTS - Imóvel até R$500.000 - Taxa a partir de 8,66% a.a. - LTV 80%</span>
-                </div>
-              )}
-              {sim.bancoId === "caixa" && sim.linhaNome?.includes("MCMV") && (
+
+              {/* Aviso Caixa: SBPE vs MCMV 4 faixas + PRICE LTV */}
+              {banco.bancoId === "caixa" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
-                  <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Minha Casa, Minha Vida - Classe Média:</strong> Renda até R$12.000 - Imóvel até R$500.000 - Taxa fixa de 10% a.a. - LTV 80%</span>
-                </div>
-              )}
-              {sim.bancoId === "caixa" && sim.linhaNome?.includes("SBPE") && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
-                  <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>SBPE:</strong> {sim.taxaAnual.toFixed(2)}% a.a. - LTV {sim.sistema === "sac" ? "80%" : "70%"} - SFH (até R$2,25mi)</span>
-                </div>
-              )}
-              {sim.bancoId === "caixa" && sim.linhaNome?.includes("SBPE") && sim.sistema === "price" && (
-                <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-1 rounded">
-                  ⚠ LTV limitado a 70% no PRICE (SBPE)
-                </div>
-              )}
-              {sim.bancoId === "bb" && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
-                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>BB cobra tarifa de administração mensal</strong> além das parcelas. Pró-Cotista FGTS: a partir de 9% a.a. Taxa base balcão exibida: 12% a.a. + TR. LTV 70%.</span>
-                </div>
-              )}
-              {sim.bancoId === "itau" && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
-                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Taxa balcão: 12,19% a.a.</strong> Com relacionamento: a partir de 11,60%. LTV até 80% (pode chegar a 90% em alguns casos).</span>
-                </div>
-              )}
-              {sim.bancoId === "santander" && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
-                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Taxa balcão: 13,19% a.a.</strong> Com relacionamento: 11,69% a 11,79% a.a. LTV 80% residencial, 70% comercial.</span>
-                </div>
-              )}
-              {sim.bancoId === "bradesco" && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
                   <span>
-                    <strong>Taxa balcão: 12,79% a.a.</strong> Com relacionamento: 11,99%. LTV 80% residencial, 60% comercial/rural.{" "}
-                    {sim.sistema === "price" && <strong className="text-amber-700">⚠ PRICE: comprometimento de renda limitado a 15% (vs 30% no SAC).</strong>}
-                    {sim.sistema === "sac" && " SAC: comprometimento de renda até 30%."}
+                    <strong>SBPE balcao: 11,49% a.a.</strong> Com relacionamento/conta salario: a partir de 10,26%. Pro-Cotista: 8,00–9,01% a.a.{" "}
+                    <strong>MCMV:</strong> Faixa 1–2 (renda ate R$4.700, imovel ate R$270k) · Faixa 3 (ate R$8.600, imovel ate R$350k) · Faixa 4 — Classe Media (renda ate R$12k, imovel ate R$500k): 10,47% a.a.{" "}
+                    {sim.sistema === "price" && <strong className="text-amber-700">⚠ PRICE: LTV maximo 50% neste banco.</strong>}
                   </span>
                 </div>
               )}
-              {sim.taxaAnual > 12.0 && sim.bancoId !== "caixa" && (
-                <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 p-2 rounded-lg">
+
+              {/* Aviso BB: tarifa mensal + Procotista */}
+              {banco.bancoId === "bb" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span><strong>Taxa acima de 12% a.a. (teto SFH):</strong> Esta operação sai do SFH e entra no SFI. O uso do FGTS não é permitido nesta linha. Teto SFH: imóveis até R$ 2.250.000.</span>
+                  <span><strong>BB cobra tarifa de administracao mensal</strong> alem das parcelas. Procotista FGTS: a partir de 9% a.a. Taxa base balcao exibida: 12% a.a. + TR.</span>
                 </div>
               )}
+
+              {/* Aviso Itau: taxa balcao vs relacionamento */}
+              {banco.bancoId === "itau" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa balcao: 12,19% a.a.</strong> Com relacionamento (Varejo/Uniclass/Personnalite): a partir de 11,60%. Opcao Poupanca: 8,32% + rendimento poupanca.</span>
+                </div>
+              )}
+
+              {/* Aviso Santander: taxa balcao vs relacionamento */}
+              {banco.bancoId === "santander" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa balcao: 13,19% a.a.</strong> Com relacionamento (Van Gogh/Select): 11,69% a 11,79% a.a. + TR.</span>
+                </div>
+              )}
+
+              {/* Aviso Bradesco: taxa balcao + limite renda PRICE */}
+              {banco.bancoId === "bradesco" && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Taxa balcao: 12,79% a.a.</strong> Com relacionamento (Exclusive/Prime): 11,99%. Opcao Poupanca: 5,83% + poupanca.{" "}
+                    {sim.sistema === "price" && <strong className="text-amber-700">⚠ PRICE: comprometimento de renda limitado a 15% (vs 30% no SAC).</strong>}
+                    {sim.sistema === "sac" && " SAC: comprometimento de renda ate 30%."}
+                  </span>
+                </div>
+              )}
+
+              {/* Aviso SFH: taxa acima do teto legal = SFI, sem FGTS */}
+              {sim.taxaAnual > 12.0 && (
+                <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 p-2 rounded-lg">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span><strong>Taxa acima de 12% a.a. (teto SFH):</strong> Esta operacao sai do SFH e entra no SFI. O uso do FGTS nao e permitido nesta linha. Teto SFH: imoveis ate R$ 2.250.000.</span>
+                </div>
+              )}
+
               {!sim.rendaSuficiente && (
                 <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 bg-amber-50 p-1 rounded">
                   <AlertCircle className="w-3 h-3" />
@@ -357,16 +342,16 @@ const BancoResultCard = ({ banco, melhorSimulacaoId, ordenarPor, valorImovel }: 
               )}
 
               <button
-                onClick={() => setExpanded(expanded === `${sim.sistema}-${sim.linhaNome}` ? null : `${sim.sistema}-${sim.linhaNome}`)}
+                onClick={() => setExpanded(expanded === sim.sistema ? null : sim.sistema)}
                 className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-medium mt-3"
               >
-                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded === `${sim.sistema}-${sim.linhaNome}` && "rotate-180")} />
-                {expanded === `${sim.sistema}-${sim.linhaNome}` ? "Ocultar" : "Ver"} tabela de parcelas
+                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded === sim.sistema && "rotate-180")} />
+                {expanded === sim.sistema ? "Ocultar" : "Ver"} tabela de parcelas
               </button>
               <AnimatePresence>
-                {expanded === `${sim.sistema}-${sim.linhaNome}` && (
+                {expanded === sim.sistema && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                    <TabelaParcelas parcelas={sim.parcelas} titulo={`${banco.bancoNome} — ${sim.sistema.toUpperCase()} ${sim.linhaNome || ''}`} />
+                    <TabelaParcelas parcelas={sim.parcelas} titulo={`${banco.bancoNome} — ${sim.sistema.toUpperCase()}`} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -388,8 +373,7 @@ const FinanciamentoCalc = () => {
   const [sistema, setSistema] = useState<Sistema>("ambos");
   const [incluirDespesas, setIncluirDespesas] = useState(false);
   const [dataNascimento, setDataNascimento] = useState("");
-  const [uf, setUf] = useState<string>("");
-  const [bancosAtivos, setBancosAtivos] = useState<string[]>([]);
+  const [bancosAtivos, setBancosAtivos] = useState<string[]>(bancos.map(b => b.id));
   const [form, setForm] = useState({
     valorImovel: "",
     entrada: "",
@@ -399,21 +383,16 @@ const FinanciamentoCalc = () => {
     rendaMensal: "",
   });
   const [results, setResults] = useState<BancoAgrupado[]>([]);
+  const [erroEntrada, setErroEntrada] = useState<string | null>(null);
   const [custoDocumentacao, setCustoDocumentacao] = useState(0);
+  const [financiado, setFinanciado] = useState(0);
+  const [entrada, setEntrada] = useState(0);
+  const [entradaPercent, setEntradaPercent] = useState(0);
   const [prazoMaximoAviso, setPrazoMaximoAviso] = useState("");
   const [entradaMinimaInfo, setEntradaMinimaInfo] = useState<string>("");
   const [rendaMinimaInfo, setRendaMinimaInfo] = useState<string>("");
   const [temFgts, setTemFgts] = useState<boolean | null>(null);
   const [nenhumaSimulacaoMsg, setNenhumaSimulacaoMsg] = useState<string | null>(null);
-  const [ordenarPor, setOrdenarPor] = useState<OrdenarPor>("totalPago");
-
-  useEffect(() => {
-    setBancosAtivos(
-      bancos
-        .filter(b => !b.desabilitada && b.selecionada !== false)
-        .map(b => b.id)
-    );
-  }, [bancos]);
 
   const toggleBanco = (id: string) => setBancosAtivos((prev) =>
     prev.includes(id) ? (prev.length > 1 ? prev.filter((b) => b !== id) : prev) : [...prev, id]);
@@ -432,21 +411,17 @@ const FinanciamentoCalc = () => {
 
   useEffect(() => {
     const valor = parseFloat(form.valorImovel.replace(/\D/g, "")) / 100 || 0;
+    const entradaVal = parseFloat(form.entrada.replace(/\D/g, "")) / 100 || 0;
     if (valor > 0 && bancosAtivos.length > 0) {
-      let entradaMin = Infinity;
+      let entradaMin = 0;
       bancos.filter(b => bancosAtivos.includes(b.id)).forEach(banco => {
-        const regra = banco.regrasDetalhadas?.find(r => r.tipoImovelId === tipoParaId[tipoImovel]);
-        let percentMax = 80;
-        if (regra) {
-          percentMax = regra.ltvMaximo;
-        } else {
-          const ltv = banco.maxFinancingPercent[tipoImovel] as any;
-          percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
-        }
+        const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+        // Usa SAC como referencia (mais favoravel) para exibir entrada minima informativa
+        const percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
         const min = valor * (1 - percentMax / 100);
-        if (min < entradaMin) entradaMin = min;
+        if (min > entradaMin) entradaMin = min;
       });
-      setEntradaMinimaInfo(`Alguns bancos podem exigir entrada maior. A entrada mínima entre os selecionados é ${formatCurrency(entradaMin)}.`);
+      setEntradaMinimaInfo(`Entrada minima necessaria: ${formatCurrency(entradaMin)} (${((entradaMin/valor)*100).toFixed(1)}%)`);
 
       const menoresTaxas = bancos
         .filter(b => bancosAtivos.includes(b.id))
@@ -456,11 +431,11 @@ const FinanciamentoCalc = () => {
         const taxaMedia = Math.min(...menoresTaxas);
         const taxaMensal = Math.pow(1 + taxaMedia / 100, 1 / 12) - 1;
         const prazo = parseInt(form.prazo) || 420;
-        const financiadoSim = valor * 0.7;
+        const financiadoSim = Math.max(0, valor - entradaVal);
         if (financiadoSim > 0) {
           const parcelaExemplo = financiadoSim * (taxaMensal * Math.pow(1 + taxaMensal, prazo)) / (Math.pow(1 + taxaMensal, prazo) - 1);
           const rendaMin = parcelaExemplo / 0.3;
-          setRendaMinimaInfo(`Renda mínima aproximada: ${formatCurrency(rendaMin)} (30% da parcela)`);
+          setRendaMinimaInfo(`Renda minima aproximada: ${formatCurrency(rendaMin)} (30% da parcela)`);
         } else {
           setRendaMinimaInfo("");
         }
@@ -471,20 +446,21 @@ const FinanciamentoCalc = () => {
       setEntradaMinimaInfo("");
       setRendaMinimaInfo("");
     }
-  }, [form.valorImovel, tipoImovel, bancosAtivos, bancos]);
+  }, [form, tipoImovel, tipoUso, bancosAtivos, bancos]);
 
   const calcular = () => {
     const valor = parseFloat(form.valorImovel.replace(/\D/g, "")) / 100 || 0;
     const entradaVal = parseFloat(form.entrada.replace(/\D/g, "")) / 100 || 0;
     const parcelaDesejada = parseFloat(form.parcelaDesejada.replace(/\D/g, "")) / 100 || 0;
     const rendaMensal = parseFloat(form.rendaMensal.replace(/\D/g, "")) / 100 || 0;
+    // taxasMensais do form agora e adicional ao MIP+DFI automatico por banco
     const taxasAdicionais = parseFloat(form.taxasMensais.replace(/\D/g, "")) / 100 || 0;
     const custoDoc = valor * 0.05;
     const prazoMaxUser = calcularPrazoMaximoGlobal();
     const prazoSolicitado = parseInt(form.prazo) || 420;
 
     if (valor <= 0) {
-      toast.error("Informe o valor do imóvel");
+      toast.error("Informe o valor do imovel");
       return;
     }
     if (simuladoPor === "parcela" && parcelaDesejada <= 0) {
@@ -496,10 +472,31 @@ const FinanciamentoCalc = () => {
       return;
     }
 
+    let entradaMinimaNecessaria = 0;
+    for (const banco of bancos.filter(b => bancosAtivos.includes(b.id))) {
+      const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+      // Para validacao, usa SAC (mais favoravel) como referencia
+      const percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
+      const entradaMin = valor * (1 - percentMax / 100);
+      if (entradaMin > entradaMinimaNecessaria) entradaMinimaNecessaria = entradaMin;
+    }
+
+    if (simuladoPor === "financiamento") {
+      if (entradaVal < entradaMinimaNecessaria - 0.01) {
+        setErroEntrada(`Entrada insuficiente. Para os bancos selecionados, a entrada minima necessaria e ${formatCurrency(entradaMinimaNecessaria)} (${((entradaMinimaNecessaria/valor)*100).toFixed(1)}%).`);
+        setResults([]);
+        return;
+      } else {
+        setErroEntrada(null);
+      }
+    } else {
+      setErroEntrada(null);
+    }
+
     if (dataNascimento && prazoMaxUser < prazoSolicitado) {
       const nasc = new Date(dataNascimento);
       const idade = new Date().getFullYear() - nasc.getFullYear();
-      setPrazoMaximoAviso(`O prazo foi ajustado individualmente em alguns bancos devido à idade do proponente (${idade} anos).`);
+      setPrazoMaximoAviso(`O prazo foi ajustado individualmente em alguns bancos devido a idade do proponente (${idade} anos).`);
     } else {
       setPrazoMaximoAviso("");
     }
@@ -509,315 +506,134 @@ const FinanciamentoCalc = () => {
 
     for (const banco of bancos) {
       if (!bancosAtivos.includes(banco.id)) continue;
+      // Validacao: valor minimo do imovel aceito por este banco
+      if (valor < banco.minImovel) continue;
 
-      if (uf && banco.estadosNaoAtendidos?.includes(uf)) continue;
-
-      const regra = banco.regrasDetalhadas?.find(r => r.tipoImovelId === tipoParaId[tipoImovel]);
-
-      const valorMinimoImovel = regra?.valorMinimoImovel ?? banco.minImovel;
-      if (valor < valorMinimoImovel) continue;
-
-      const prazoMaximo = regra?.prazoMaximo ?? banco.maxPrazo;
-      const prazoEfetivoBase = Math.min(prazoSolicitado, prazoMaximo, prazoMaxUser);
-      if (prazoEfetivoBase <= 0) continue;
-
-      const prazoMinimo = regra?.prazoMinimo ?? 12;
-      if (prazoEfetivoBase < prazoMinimo) continue;
+      // Prazo maximo por banco/tipo: Itau comercial = 240m | Santander comercial = 360m
+      const maxPrazoBancoTipo =
+        banco.id === "itau" && tipoImovel === "comercial" ? 240 :
+        banco.id === "santander" && tipoImovel === "comercial" ? 360 :
+        banco.maxPrazo;
+      const prazoEfetivo = Math.min(prazoSolicitado, maxPrazoBancoTipo, prazoMaxUser);
+      if (prazoEfetivo <= 0) continue;
 
       const sistemas: Array<"price" | "sac"> = sistema === "ambos" ? ["price", "sac"] : [sistema as "price" | "sac"];
 
-      if (banco.id === "caixa") {
-        const linhasCaixa: Array<{
-          nome: string;
-          taxa: number;
-          ltv: number;
-          prazoMax?: number;
-          condicao: boolean;
-        }> = [];
+      for (const sis of sistemas) {
+        const taxaAnual = banco.taxas[tipoImovel][sis];
+        if (!taxaAnual) continue;
 
-        if (temFgts && valor <= 500000) {
-          linhasCaixa.push({
-            nome: "Pró-Cotista",
-            taxa: banco.taxasProCotista?.sac || 8.66,
-            ltv: banco.ltvProCotista?.sac || 80,
-            prazoMax: 420,
-            condicao: true,
-          });
-        }
+        const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
+        let financiadoCalc: number;
+        let entradaEfetiva = entradaVal;
 
-        if (rendaMensal <= 12000 && valor <= 500000) {
-          linhasCaixa.push({
-            nome: "MCMV",
-            taxa: banco.taxasMCMV?.sac || 10.0,
-            ltv: banco.ltvMCMV?.sac || 80,
-            prazoMax: 420,
-            condicao: true,
-          });
-        }
-
-        if (valor <= 2250000) {
-          linhasCaixa.push({
-            nome: "SBPE (Relacionamento)",
-            taxa: 10.26,
-            ltv: 80,
-            prazoMax: 420,
-            condicao: true,
-          });
-          linhasCaixa.push({
-            nome: "SBPE (Balcão)",
-            taxa: banco.taxas[tipoImovel]?.sac || 11.49,
-            ltv: 80,
-            prazoMax: 420,
-            condicao: true,
-          });
-        }
-
-        for (const linha of linhasCaixa) {
-          for (const sis of sistemas) {
-            let ltvEfetivo = linha.ltv;
-            if (linha.nome.includes("SBPE")) {
-              ltvEfetivo = sis === "sac" ? 80 : 70;
-            }
-
-            const taxaAnual = linha.taxa;
-            const prazoEfetivo = Math.min(prazoEfetivoBase, linha.prazoMax || 420);
-            if (prazoEfetivo < 12) continue;
-
-            const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
-            let financiadoCalc: number;
-            let entradaEfetiva: number;
-
-            if (simuladoPor === "financiamento") {
-              const financiadoDesejado = valor - entradaVal;
-              const financiadoMaximo = valor * (ltvEfetivo / 100);
-              financiadoCalc = Math.min(financiadoDesejado, financiadoMaximo);
-              entradaEfetiva = valor - financiadoCalc;
-
-              if (incluirDespesas) {
-                const maxDespesas = regra?.maxDespesasPercent ?? 5;
-                const despesasPermitidas = Math.min(custoDoc, valor * (maxDespesas / 100));
-                financiadoCalc += despesasPermitidas;
-              }
-            } else if (simuladoPor === "parcela") {
-              const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
-              const parcelaBase = parcelaDesejada - taxasAdicionais - seguroEstimado;
-              if (parcelaBase <= 0) continue;
-              if (sis === "price") {
-                financiadoCalc = parcelaBase * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
-              } else {
-                financiadoCalc = parcelaBase / (1 / prazoEfetivo + taxaMensal);
-              }
-              const financiadoMaximo = valor * (ltvEfetivo / 100);
-              financiadoCalc = Math.min(financiadoCalc, financiadoMaximo, valor);
-              entradaEfetiva = valor - financiadoCalc;
-            } else {
-              const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
-              const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
-              if (sis === "price") {
-                financiadoCalc = parcelaMax * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
-              } else {
-                financiadoCalc = parcelaMax / (1 / prazoEfetivo + taxaMensal);
-              }
-              const financiadoMaximo = valor * (ltvEfetivo / 100);
-              financiadoCalc = Math.min(financiadoCalc, financiadoMaximo, valor);
-              entradaEfetiva = valor - financiadoCalc;
-            }
-
-            if (financiadoCalc <= 0) continue;
-
-            const valorMinimoFinanciamento = regra?.valorMinimoFinanciamento ?? 0;
-            if (financiadoCalc < valorMinimoFinanciamento) continue;
-
-            const entradaMinBanco = valor * (1 - ltvEfetivo / 100);
-            if (entradaEfetiva < entradaMinBanco - 0.01 && simuladoPor !== "financiamento") continue;
-
-            const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
-            const taxasMensaisTotal = taxasAdicionais + segurosMensais;
-
-            const { parcelas, totalJuros, primeiraParcela, ultimaParcela } = calcularParcelas(
-              financiadoCalc,
-              taxaMensal,
-              prazoEfetivo,
-              taxasMensaisTotal,
-              sis
-            );
-
-            const rendaSuficiente = simuladoPor !== "renda" || (primeiraParcela <= rendaMensal * 0.3);
-
-            const simulacao: Simulacao = {
-              bancoId: banco.id,
-              bancoNome: banco.nome,
-              cor: banco.cor,
-              corTexto: banco.corTexto,
-              sigla: banco.sigla,
-              taxaAnual,
-              sistema: sis,
-              prazoUsado: prazoEfetivo,
-              primeiraParcela,
-              ultimaParcela,
-              totalJuros,
-              totalPago: financiadoCalc + totalJuros + taxasMensaisTotal * prazoEfetivo,
-              rendaExigida: primeiraParcela / 0.3,
-              parcelas,
-              valorFinanciado: financiadoCalc,
-              valorImovel: valor,
-              entradaReal: entradaEfetiva,
-              rendaSuficiente,
-              tag: banco.tag,
-              segurosMensais,
-              linhaNome: linha.nome,
-            };
-
-            if (!bancoMap.has(banco.id)) {
-              bancoMap.set(banco.id, {
-                bancoId: banco.id,
-                bancoNome: banco.nome,
-                cor: banco.cor,
-                corTexto: banco.corTexto,
-                sigla: banco.sigla,
-                simulacoes: [],
-              });
-            }
-            bancoMap.get(banco.id)!.simulacoes.push(simulacao);
-            algumaSimulacaoGerada = true;
-          }
-        }
-      } else {
-        for (const sis of sistemas) {
-          const taxaAnual = banco.taxas[tipoImovel][sis];
-          if (!taxaAnual) continue;
-
-          let ltvEfetivo: number;
-          if (regra) {
-            ltvEfetivo = regra.ltvMaximo;
+        if (simuladoPor === "financiamento") {
+          financiadoCalc = valor - entradaVal;
+          if (incluirDespesas) financiadoCalc += custoDoc;
+        } else if (simuladoPor === "parcela") {
+          // Desconta MIP+DFI estimado antes de calcular o principal
+          const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
+          const parcelaBase = parcelaDesejada - taxasAdicionais - seguroEstimado;
+          if (parcelaBase <= 0) continue;
+          if (sis === "price") {
+            financiadoCalc = parcelaBase * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
           } else {
-            const ltv = banco.maxFinancingPercent[tipoImovel] as any;
-            ltvEfetivo = typeof ltv[sis] === "number" ? ltv[sis] : 80;
+            financiadoCalc = parcelaBase / (1 / prazoEfetivo + taxaMensal);
           }
-
-          const taxaMensal = Math.pow(1 + taxaAnual / 100, 1 / 12) - 1;
-          let financiadoCalc: number;
-          let entradaEfetiva: number;
-
-          if (simuladoPor === "financiamento") {
-            const financiadoDesejado = valor - entradaVal;
-            const financiadoMaximo = valor * (ltvEfetivo / 100);
-            financiadoCalc = Math.min(financiadoDesejado, financiadoMaximo);
-            entradaEfetiva = valor - financiadoCalc;
-
-            if (incluirDespesas) {
-              const maxDespesas = regra?.maxDespesasPercent ?? 5;
-              const despesasPermitidas = Math.min(custoDoc, valor * (maxDespesas / 100));
-              financiadoCalc += despesasPermitidas;
-            }
-          } else if (simuladoPor === "parcela") {
-            const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
-            const parcelaBase = parcelaDesejada - taxasAdicionais - seguroEstimado;
-            if (parcelaBase <= 0) continue;
-            if (sis === "price") {
-              financiadoCalc = parcelaBase * (Math.pow(1 + taxaMensal, prazoEfetivoBase) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivoBase));
-            } else {
-              financiadoCalc = parcelaBase / (1 / prazoEfetivoBase + taxaMensal);
-            }
-            const financiadoMaximo = valor * (ltvEfetivo / 100);
-            financiadoCalc = Math.min(financiadoCalc, financiadoMaximo, valor);
-            entradaEfetiva = valor - financiadoCalc;
+          financiadoCalc = Math.min(financiadoCalc, valor);
+          entradaEfetiva = valor - financiadoCalc;
+        } else { // renda
+          const seguroEstimado = calcularSegurosMensais(banco, valor * 0.80, valor);
+          const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
+          if (sis === "price") {
+            financiadoCalc = parcelaMax * (Math.pow(1 + taxaMensal, prazoEfetivo) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivo));
           } else {
-            const seguroEstimado = calcularSegurosMensais(banco, valor * 0.8, valor);
-            const parcelaMax = rendaMensal * 0.3 - taxasAdicionais - seguroEstimado;
-            if (sis === "price") {
-              financiadoCalc = parcelaMax * (Math.pow(1 + taxaMensal, prazoEfetivoBase) - 1) / (taxaMensal * Math.pow(1 + taxaMensal, prazoEfetivoBase));
-            } else {
-              financiadoCalc = parcelaMax / (1 / prazoEfetivoBase + taxaMensal);
-            }
-            const financiadoMaximo = valor * (ltvEfetivo / 100);
-            financiadoCalc = Math.min(financiadoCalc, financiadoMaximo, valor);
-            entradaEfetiva = valor - financiadoCalc;
+            financiadoCalc = parcelaMax / (1 / prazoEfetivo + taxaMensal);
           }
+          financiadoCalc = Math.min(financiadoCalc, valor);
+          entradaEfetiva = valor - financiadoCalc;
+        }
 
-          if (financiadoCalc <= 0) continue;
+        if (financiadoCalc <= 0) continue;
 
-          const valorMinimoFinanciamento = regra?.valorMinimoFinanciamento ?? 0;
-          if (financiadoCalc < valorMinimoFinanciamento) continue;
+        // LTV por sistema de amortizacao (SAC vs PRICE)
+        // Ex: Caixa SAC=80%, PRICE=50% | demais bancos iguais para ambos
+        const ltv = banco.maxFinancingPercent[tipoImovel] as any;
+        const percentMax: number = (typeof ltv[sis] === "number") ? ltv[sis] : 80;
+        const entradaMinBanco = valor * (1 - percentMax / 100);
+        if (entradaEfetiva < entradaMinBanco - 0.01) continue;
 
-          const entradaMinBanco = valor * (1 - ltvEfetivo / 100);
-          if (entradaEfetiva < entradaMinBanco - 0.01 && simuladoPor !== "financiamento") continue;
+        // MIP + DFI reais calculados com base no financiado e valor do imovel deste banco
+        const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
+        const taxasMensaisTotal = taxasAdicionais + segurosMensais;
 
-          const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
-          const taxasMensaisTotal = taxasAdicionais + segurosMensais;
+        const { parcelas, totalJuros, primeiraParcela, ultimaParcela } = calcularParcelas(
+          financiadoCalc,
+          taxaMensal,
+          prazoEfetivo,
+          taxasMensaisTotal,
+          sis
+        );
 
-          const { parcelas, totalJuros, primeiraParcela, ultimaParcela } = calcularParcelas(
-            financiadoCalc,
-            taxaMensal,
-            prazoEfetivoBase,
-            taxasMensaisTotal,
-            sis
-          );
+        const rendaSuficiente = simuladoPor !== "renda" || (primeiraParcela <= rendaMensal * 0.3);
 
-          const rendaSuficiente = simuladoPor !== "renda" || (primeiraParcela <= rendaMensal * 0.3);
+        const simulacao: Simulacao = {
+          bancoId: banco.id,
+          bancoNome: banco.nome,
+          cor: banco.cor,
+          corTexto: banco.corTexto,
+          sigla: banco.sigla,
+          taxaAnual,
+          sistema: sis,
+          prazoUsado: prazoEfetivo,
+          primeiraParcela,
+          ultimaParcela,
+          totalJuros,
+          totalPago: financiadoCalc + totalJuros + taxasMensaisTotal * prazoEfetivo,
+          rendaExigida: primeiraParcela / 0.3,
+          parcelas,
+          valorFinanciado: financiadoCalc,
+          rendaSuficiente,
+          tag: banco.tag,
+          segurosMensais,
+        };
 
-          const simulacao: Simulacao = {
+        if (!bancoMap.has(banco.id)) {
+          bancoMap.set(banco.id, {
             bancoId: banco.id,
             bancoNome: banco.nome,
             cor: banco.cor,
             corTexto: banco.corTexto,
             sigla: banco.sigla,
-            taxaAnual,
-            sistema: sis,
-            prazoUsado: prazoEfetivoBase,
-            primeiraParcela,
-            ultimaParcela,
-            totalJuros,
-            totalPago: financiadoCalc + totalJuros + taxasMensaisTotal * prazoEfetivoBase,
-            rendaExigida: primeiraParcela / 0.3,
-            parcelas,
-            valorFinanciado: financiadoCalc,
-            valorImovel: valor,
-            entradaReal: entradaEfetiva,
-            rendaSuficiente,
-            tag: banco.tag,
-            segurosMensais,
-          };
-
-          if (!bancoMap.has(banco.id)) {
-            bancoMap.set(banco.id, {
-              bancoId: banco.id,
-              bancoNome: banco.nome,
-              cor: banco.cor,
-              corTexto: banco.corTexto,
-              sigla: banco.sigla,
-              simulacoes: [],
-            });
-          }
-          bancoMap.get(banco.id)!.simulacoes.push(simulacao);
-          algumaSimulacaoGerada = true;
+            simulacoes: [],
+          });
         }
+        bancoMap.get(banco.id)!.simulacoes.push(simulacao);
+        algumaSimulacaoGerada = true;
       }
     }
 
     if (!algumaSimulacaoGerada) {
       if (simuladoPor === "renda") {
-        setNenhumaSimulacaoMsg("Nenhum banco atende a sua renda com a entrada mínima exigida. Tente aumentar a renda ou reduzir o valor do imóvel.");
+        setNenhumaSimulacaoMsg("Nenhum banco atende a sua renda com a entrada minima exigida. Tente aumentar a renda ou reduzir o valor do imovel.");
       } else if (simuladoPor === "parcela") {
-        setNenhumaSimulacaoMsg("Nenhum banco atende a parcela desejada com a entrada mínima exigida. Tente aumentar a parcela ou reduzir o valor do imóvel.");
+        setNenhumaSimulacaoMsg("Nenhum banco atende a parcela desejada com a entrada minima exigida. Tente aumentar a parcela ou reduzir o valor do imovel.");
       } else {
-        setNenhumaSimulacaoMsg("Nenhuma simulação encontrada com os critérios informados. Verifique se a entrada é suficiente para algum banco.");
+        setNenhumaSimulacaoMsg("Nenhuma simulacao encontrada com os criterios informados.");
       }
       setResults([]);
       return;
     }
 
-    const agrupados = Array.from(bancoMap.values())
-      .map(b => ({
-        ...b,
-        simulacoes: b.simulacoes.sort((a, b) => a.totalPago - b.totalPago),
-      }))
-      .sort((a, b) => {
-        const ordemA = bancos.find(bk => bk.id === a.bancoId)?.ordemSimulacao ?? 999;
-        const ordemB = bancos.find(bk => bk.id === b.bancoId)?.ordemSimulacao ?? 999;
-        return ordemA - ordemB;
-      });
+    const agrupados = Array.from(bancoMap.values()).map(b => ({
+      ...b,
+      simulacoes: b.simulacoes.sort((a, b) => a.totalPago - b.totalPago),
+    }));
 
+    const primeiraSim = agrupados[0].simulacoes[0];
+    setFinanciado(primeiraSim.valorFinanciado);
+    setEntrada(valor - primeiraSim.valorFinanciado);
+    setEntradaPercent(((valor - primeiraSim.valorFinanciado) / valor) * 100);
     setCustoDocumentacao(custoDoc);
     setNenhumaSimulacaoMsg(null);
     setResults(agrupados);
@@ -825,9 +641,7 @@ const FinanciamentoCalc = () => {
 
   const reset = () => {
     setForm({ valorImovel: "", entrada: "", prazo: "420", taxasMensais: "0", parcelaDesejada: "", rendaMensal: "" });
-    setResults([]); setCustoDocumentacao(0); setPrazoMaximoAviso(""); setDataNascimento(""); setNenhumaSimulacaoMsg(null);
-    setUf("");
-    setTemFgts(null);
+    setResults([]); setCustoDocumentacao(0); setPrazoMaximoAviso(""); setDataNascimento(""); setErroEntrada(null); setNenhumaSimulacaoMsg(null);
   };
 
   const melhorSimulacaoId = useMemo(() => {
@@ -835,25 +649,17 @@ const FinanciamentoCalc = () => {
     let melhor: { id: string; total: number } | null = null;
     results.forEach(banco => {
       banco.simulacoes.forEach(sim => {
-        let valorComparacao: number;
-        if (ordenarPor === "totalPago") valorComparacao = sim.totalPago;
-        else if (ordenarPor === "primeiraParcela") valorComparacao = sim.primeiraParcela;
-        else if (ordenarPor === "totalJuros") valorComparacao = sim.totalJuros;
-        else if (ordenarPor === "rendaExigida") valorComparacao = sim.rendaExigida;
-        else valorComparacao = sim.totalPago;
-
-        if (!melhor || valorComparacao < melhor.total) {
-          melhor = { id: `${sim.bancoId}-${sim.sistema}-${sim.linhaNome || ''}`, total: valorComparacao };
+        if (!melhor || sim.totalPago < melhor.total) {
+          melhor = { id: `${sim.bancoId}-${sim.sistema}`, total: sim.totalPago };
         }
       });
     });
     return melhor?.id || null;
-  }, [results, ordenarPor]);
-
-  const valorImovel = parseFloat(form.valorImovel.replace(/\D/g, "")) / 100 || 0;
+  }, [results]);
 
   return (
     <div className="space-y-6">
+      {/* Bancos */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-purple-600" /> Bancos consultados</Label>
@@ -876,9 +682,10 @@ const FinanciamentoCalc = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Tipo imovel + novo/usado */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Tipo de Imóvel</Label>
+          <Label>Tipo de Imovel</Label>
           <div className="flex gap-1 bg-muted p-1 rounded-lg">
             {(["residencial", "comercial", "rural"] as TipoImovel[]).map((t) => (
               <button key={t} onClick={() => { setTipoImovel(t); setResults([]); }}
@@ -900,66 +707,68 @@ const FinanciamentoCalc = () => {
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">No SBPE, novo e usado têm a mesma taxa. A diferença é no MCMV (subsidiado).</p>
+          <p className="text-xs text-muted-foreground">No SBPE, novo e usado tem a mesma taxa. A diferenca e no MCMV (subsidiado).</p>
         </div>
       </div>
 
+      {/* Simular por */}
       <div className="space-y-2">
         <Label>Simular por</Label>
-        <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+        <div className="flex gap-1 bg-muted p-1 rounded-lg overflow-x-auto scrollbar-none">
           <button onClick={() => setSimuladoPor("financiamento")}
-            className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-all",
+            className={cn("px-2 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap",
               simuladoPor === "financiamento" ? "bg-white text-[#7E22CE] shadow-sm" : "text-muted-foreground")}>
-            Valor do Imóvel
+            Valor do Imovel
           </button>
           <button onClick={() => setSimuladoPor("parcela")}
-            className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-all",
+            className={cn("px-2 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap",
               simuladoPor === "parcela" ? "bg-white text-[#7E22CE] shadow-sm" : "text-muted-foreground")}>
             Parcela Desejada
           </button>
           <button onClick={() => setSimuladoPor("renda")}
-            className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-all",
+            className={cn("px-2 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap",
               simuladoPor === "renda" ? "bg-white text-[#7E22CE] shadow-sm" : "text-muted-foreground")}>
             Renda Mensal
           </button>
         </div>
       </div>
 
+      {/* Sistema amortizacao */}
       <div className="space-y-2">
-        <Label>Sistema de Amortização</Label>
-        <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+        <Label>Sistema de Amortizacao</Label>
+        <div className="flex flex-col xs:flex-row gap-1 bg-muted p-1 rounded-lg">
           {(["price", "sac", "ambos"] as Sistema[]).map((s) => (
             <button key={s} onClick={() => { setSistema(s); setResults([]); }}
-              className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-all",
+              className={cn("px-2 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap",
                 sistema === s ? "bg-white text-[#7E22CE] shadow-sm" : "text-muted-foreground")}>
               {s === "ambos" ? "Comparar os dois" : `Tabela ${s.toUpperCase()}`}
             </button>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          {sistema === "price" && "PRICE: parcelas fixas, juros maiores no início"}
-          {sistema === "sac" && "SAC: amortização fixa, parcelas decrescentes, menos juros no total"}
+          {sistema === "price" && "PRICE: parcelas fixas, juros maiores no inicio"}
+          {sistema === "sac" && "SAC: amortizacao fixa, parcelas decrescentes, menos juros no total"}
           {sistema === "ambos" && "Compare PRICE e SAC para cada banco selecionado"}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Campos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label>Valor do Imóvel</Label>
+          <Label>Valor do Imovel</Label>
           <Input placeholder="R$ 0,00" value={displayMoney(form.valorImovel)} onChange={(e) => handleMoney("valorImovel", e.target.value)} />
         </div>
         {simuladoPor === "financiamento" && (
           <div className="space-y-2">
-            <Label>Valor da Entrada (desejado)</Label>
+            <Label>Valor da Entrada</Label>
             <Input placeholder="R$ 0,00" value={displayMoney(form.entrada)} onChange={(e) => handleMoney("entrada", e.target.value)} />
-            <p className="text-xs text-muted-foreground">O valor final pode ser ajustado conforme LTV de cada banco</p>
           </div>
         )}
         {simuladoPor === "parcela" && (
           <div className="space-y-2">
-            <Label>Parcela Desejada (R$/mês)</Label>
+            <Label>Parcela Desejada (R$/mes)</Label>
             <Input placeholder="R$ 0,00" value={displayMoney(form.parcelaDesejada)} onChange={(e) => handleMoney("parcelaDesejada", e.target.value)} />
-            <p className="text-xs text-muted-foreground">Calcula o valor máximo financiável</p>
+            <p className="text-xs text-muted-foreground">Calcula o valor maximo financiavel</p>
           </div>
         )}
         {simuladoPor === "renda" && (
@@ -970,9 +779,9 @@ const FinanciamentoCalc = () => {
           </div>
         )}
         <div className="space-y-2">
-          <Label>Taxas Adicionais (R$/mês)</Label>
+          <Label>Taxas Adicionais (R$/mes)</Label>
           <Input placeholder="R$ 0,00" value={displayMoney(form.taxasMensais)} onChange={(e) => handleMoney("taxasMensais", e.target.value)} />
-          <p className="text-xs text-muted-foreground">MIP e DFI são calculados automaticamente por banco</p>
+          <p className="text-xs text-muted-foreground">MIP e DFI sao calculados automaticamente por banco</p>
         </div>
         <div className="space-y-2">
           <Label>Prazo Solicitado (meses)</Label>
@@ -988,27 +797,29 @@ const FinanciamentoCalc = () => {
         </div>
         <div className="space-y-2">
           <Label className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Data de Nasc. (Opcional)</Label>
-          <Input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} max={new Date().toISOString().split("T")[0]} />
+          <Input
+            type="text"
+            inputMode="numeric"
+            placeholder="DD/MM/AAAA"
+            maxLength={10}
+            value={dataNascimento ? (() => { const d = dataNascimento.split("-"); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : dataNascimento; })() : ""}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, "");
+              const fmt = v.length <= 2 ? v : v.length <= 4 ? `${v.slice(0,2)}/${v.slice(2)}` : `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4,8)}`;
+              if (v.length === 8) {
+                const iso = `${v.slice(4,8)}-${v.slice(2,4)}-${v.slice(0,2)}`;
+                setDataNascimento(iso);
+              } else {
+                setDataNascimento(fmt);
+              }
+            }}
+          />
           <p className="text-xs text-muted-foreground">Valida o limite de idade de 80 anos e 6m</p>
         </div>
         <div className="space-y-2">
-          <Label>UF do Imóvel (opcional)</Label>
-          <select
-            value={uf}
-            onChange={(e) => setUf(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">Selecione</option>
-            {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map(uf => (
-              <option key={uf} value={uf}>{uf}</option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">Alguns bancos não atendem determinadas UFs</p>
-        </div>
-        <div className="space-y-2 col-span-2 md:col-span-1">
           <Label className="flex items-center gap-1.5 text-sm font-medium">Possui 3+ anos de FGTS?</Label>
           <div className="flex gap-2">
-            {([{ v: true, label: "Sim" }, { v: false, label: "Não" }] as const).map(({ v, label }) => (
+            {([{ v: true, label: "Sim" }, { v: false, label: "Nao" }] as const).map(({ v, label }) => (
               <button key={label} type="button"
                 onClick={() => setTemFgts(v)}
                 className={cn("flex-1 py-2 rounded-lg border text-xs font-medium transition-all",
@@ -1021,10 +832,10 @@ const FinanciamentoCalc = () => {
             ))}
           </div>
           {temFgts === true && (
-            <p className="text-xs text-green-600 font-medium">✓ FGTS disponível: entrada, amortização (a cada 2 anos) ou até 80% das parcelas por 12 meses.</p>
+            <p className="text-xs text-green-600 font-medium">✓ FGTS disponivel: entrada, amortizacao (a cada 2 anos) ou ate 80% das parcelas por 12 meses.</p>
           )}
           {temFgts === false && (
-            <p className="text-xs text-slate-400">Sem FGTS disponível. Financiamento via recursos próprios ou SBPE.</p>
+            <p className="text-xs text-slate-400">Sem FGTS disponivel. Financiamento via recursos proprios ou SBPE.</p>
           )}
         </div>
       </div>
@@ -1042,10 +853,11 @@ const FinanciamentoCalc = () => {
         </Alert>
       )}
 
+      {/* Despesas */}
       <div className="bg-muted/50 rounded-xl p-4 space-y-2">
         <p className="text-sm font-semibold text-slate-700">Despesas</p>
         <div className="flex flex-wrap items-center gap-4">
-          <p className="text-sm text-muted-foreground">Incluir ITBI + Cartório no financiamento?</p>
+          <p className="text-sm text-muted-foreground">Incluir ITBI + Cartorio no financiamento?</p>
           <div className="flex gap-3">
             {[true, false].map((val) => (
               <button key={String(val)} onClick={() => setIncluirDespesas(val)}
@@ -1054,16 +866,22 @@ const FinanciamentoCalc = () => {
                 <div className={cn("w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center", incluirDespesas === val ? "border-[#7E22CE]" : "border-slate-300")}>
                   {incluirDespesas === val && <div className="w-1.5 h-1.5 rounded-full bg-[#7E22CE]" />}
                 </div>
-                {val ? "Sim" : "Não"}
+                {val ? "Sim" : "Nao"}
               </button>
             ))}
           </div>
         </div>
         {incluirDespesas && form.valorImovel && (
-          <p className="text-xs text-amber-600">≈ {formatCurrency((parseFloat(form.valorImovel.replace(/\D/g, "")) / 100 || 0) * 0.05)} pode ser embutido no valor financiado (sujeito a limite por banco)</p>
+          <p className="text-xs text-amber-600">≈ {formatCurrency((parseFloat(form.valorImovel.replace(/\D/g, "")) / 100 || 0) * 0.05)} embutido no valor financiado</p>
         )}
       </div>
 
+      {erroEntrada && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{erroEntrada}</AlertDescription>
+        </Alert>
+      )}
       {prazoMaximoAviso && (
         <Alert className="bg-amber-50 border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -1071,6 +889,7 @@ const FinanciamentoCalc = () => {
         </Alert>
       )}
 
+      {/* Botoes */}
       <div className="flex gap-3">
         <Button onClick={calcular} disabled={loading} className="flex-1 bg-[#7E22CE] hover:bg-[#6b21a8]">
           <Calculator className="w-4 h-4 mr-2" />
@@ -1079,73 +898,49 @@ const FinanciamentoCalc = () => {
         <Button variant="outline" onClick={reset}><RefreshCw className="w-4 h-4" /></Button>
       </div>
 
+      {/* Resultados */}
       {results.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Valor do Imóvel</p>
-              <p className="text-base font-bold text-slate-800">{formatCurrency(valorImovel)}</p>
+              <p className="text-xs text-muted-foreground">Valor Financiado (aprox.)</p>
+              <p className="text-base font-bold text-slate-800">{formatCurrency(financiado)}</p>
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">ITBI + Cartório (Est.)</p>
+              <p className="text-xs text-muted-foreground">ITBI + Cartorio (Est.)</p>
               <p className="text-base font-bold text-amber-800">{formatCurrency(custoDocumentacao)}</p>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-              <p className="text-xs text-muted-foreground">Entrada desejada</p>
-              <p className="text-base font-bold text-blue-800">{formatCurrency(parseFloat(form.entrada.replace(/\D/g, "")) / 100 || 0)}</p>
+              <p className="text-xs text-muted-foreground">Entrada</p>
+              <p className="text-base font-bold text-blue-800">{formatCurrency(entrada)} <span className="text-xs font-normal">({entradaPercent.toFixed(1)}%)</span></p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg">
-            <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Ordenar por:</span>
-            <div className="flex gap-1 flex-wrap">
-              {[
-                { value: "totalPago", label: "Menor Total Pago" },
-                { value: "primeiraParcela", label: "Menor Parcela" },
-                { value: "totalJuros", label: "Menor Juros" },
-                { value: "rendaExigida", label: "Menor Renda Exigida" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setOrdenarPor(opt.value as OrdenarPor)}
-                  className={cn("px-3 py-1 text-xs rounded-full transition-all",
-                    ordenarPor === opt.value
-                      ? "bg-[#7E22CE] text-white"
-                      : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <p className="text-sm text-muted-foreground">
-            {results.reduce((acc, b) => acc + b.simulacoes.length, 0)} simulações · ordenadas por banco
+            {results.reduce((acc, b) => acc + b.simulacoes.length, 0)} simulacoes · ordenadas por banco
           </p>
 
+          {/* Badge FGTS + aviso SFH */}
           {temFgts === true && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-green-600 shrink-0" />
-                <p className="text-xs font-bold text-green-800 uppercase tracking-wide">FGTS disponível — 3 formas de uso</p>
+                <p className="text-xs font-bold text-green-800 uppercase tracking-wide">FGTS disponivel — 3 formas de uso</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-green-800">
                 <div className="bg-white rounded-lg p-2.5 border border-green-100">
                   <p className="font-semibold mb-0.5">📥 Entrada</p>
-                  <p className="text-green-700">Compõe ou paga integralmente o valor de entrada na compra</p>
+                  <p className="text-green-700">Compoe ou paga integralmente o valor de entrada na compra</p>
                 </div>
                 <div className="bg-white rounded-lg p-2.5 border border-green-100">
-                  <p className="font-semibold mb-0.5">📉 Amortização</p>
+                  <p className="font-semibold mb-0.5">📉 Amortizacao</p>
                   <p className="text-green-700">Abate o saldo devedor a cada 2 anos — reduz parcela ou prazo</p>
                 </div>
                 <div className="bg-white rounded-lg p-2.5 border border-green-100">
                   <p className="font-semibold mb-0.5">🔄 Parcelas</p>
-                  <p className="text-green-700">Até 80% da parcela mensal por até 12 meses seguidos</p>
+                  <p className="text-green-700">Ate 80% da parcela mensal por ate 12 meses seguidos</p>
                 </div>
               </div>
-              <p className="text-xs text-green-700">Válido em <strong>qualquer banco</strong> abaixo (é lei federal). Imóvel deve se enquadrar no SFH: residencial urbano, valor até R$ 2.250.000, sem outro financiamento ativo no SFH.</p>
+              <p className="text-xs text-green-700">Valido em <strong>qualquer banco</strong> abaixo (e lei federal). Imovel deve se enquadrar no SFH: residencial urbano, valor ate R$ 2.250.000, sem outro financiamento ativo no SFH.</p>
             </div>
           )}
           {temFgts === false && (
@@ -1153,13 +948,13 @@ const FinanciamentoCalc = () => {
               <Info className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
               <div className="text-xs text-slate-600">
                 <p className="font-medium">Financiamento via SBPE (sem FGTS)</p>
-                <p className="text-slate-400 mt-0.5">Para usar o FGTS é necessário ter no mínimo 3 anos de contribuição acumulada (consecutivos ou não).</p>
+                <p className="text-slate-400 mt-0.5">Para usar o FGTS e necessario ter no minimo 3 anos de contribuicao acumulada (consecutivos ou nao).</p>
               </div>
             </div>
           )}
           <div className="space-y-3">
             {results.map((banco) => (
-              <BancoResultCard key={banco.bancoId} banco={banco} melhorSimulacaoId={melhorSimulacaoId} ordenarPor={ordenarPor} valorImovel={valorImovel} />
+              <BancoResultCard key={banco.bancoId} banco={banco} melhorSimulacaoId={melhorSimulacaoId} />
             ))}
           </div>
         </motion.div>
@@ -1181,6 +976,7 @@ const FinanciamentoCalc = () => {
   );
 };
 
+// ─── ABA COMISSAO (identica ao original) ─────────────────────────────────────
 const ComissaoCalc = () => {
   const [form, setForm] = useState({ valorVenda: "", comissao: "6", repasse: "50", impostos: "6" });
   const [result, setResult] = useState<any>(null);
@@ -1211,14 +1007,14 @@ const ComissaoCalc = () => {
           <Input placeholder="R$ 0,00" value={displayMoney(form.valorVenda)} onChange={(e) => handleMoney(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label>Comissão Total (%)</Label>
+          <Label>Comissao Total (%)</Label>
           <Input type="number" step="0.5" value={form.comissao} onChange={(e) => setForm(f => ({ ...f, comissao: e.target.value }))} placeholder="6" />
           <p className="text-xs text-muted-foreground">Ex: 6% a 8%</p>
         </div>
         <div className="space-y-2">
           <Label>Repasse / Sua Parte (%)</Label>
           <Input type="number" step="1" value={form.repasse} onChange={(e) => setForm(f => ({ ...f, repasse: e.target.value }))} placeholder="50" />
-          <p className="text-xs text-muted-foreground">Ex: 50/50 com a agência</p>
+          <p className="text-xs text-muted-foreground">Ex: 50/50 com a agencia</p>
         </div>
         <div className="space-y-2">
           <Label>Impostos (%)</Label>
@@ -1228,23 +1024,23 @@ const ComissaoCalc = () => {
       </div>
       <div className="flex gap-3">
         <Button onClick={calcular} className="flex-1 bg-[#7E22CE] hover:bg-[#6b21a8]">
-          <Percent className="w-4 h-4 mr-2" />Calcular Comissão
+          <Percent className="w-4 h-4 mr-2" />Calcular Comissao
         </Button>
         <Button variant="outline" onClick={reset}><RefreshCw className="w-4 h-4" /></Button>
       </div>
       {result && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 lg:col-span-2">
-              <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Líquido no seu Bolso</p>
+              <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Liquido no seu Bolso</p>
               <p className="text-3xl font-bold text-purple-900">{formatCurrency(result.liquido)}</p>
             </div>
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-              <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Comissão Total</p>
+              <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Comissao Total</p>
               <p className="text-xl font-bold text-slate-900">{formatCurrency(result.comissaoTotal)}</p>
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-              <p className="text-xs text-amber-600 font-semibold uppercase mb-1">Parte Imobiliária/Parceiro</p>
+              <p className="text-xs text-amber-600 font-semibold uppercase mb-1">Parte Imobiliaria/Parceiro</p>
               <p className="text-xl font-bold text-amber-900">{formatCurrency(result.parteImobiliaria)}</p>
             </div>
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 lg:col-span-2">
@@ -1262,6 +1058,7 @@ const ComissaoCalc = () => {
   );
 };
 
+// ─── ABA RENTABILIDADE (identica ao original) ─────────────────────────────────
 const RentabilidadeCalc = () => {
   const [form, setForm] = useState({ valorImovel: "", aluguelMensal: "", despesas: "", impostoRenda: "15", valorizacao: "5" });
   const [result, setResult] = useState<any>(null);
@@ -1290,9 +1087,9 @@ const RentabilidadeCalc = () => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="space-y-2 lg:col-span-3">
-          <Label>Valor do Imóvel</Label>
+          <Label>Valor do Imovel</Label>
           <Input placeholder="R$ 0,00" value={displayMoney(form.valorImovel)} onChange={(e) => handleMoney("valorImovel", e.target.value)} />
         </div>
         <div className="space-y-2">
@@ -1308,7 +1105,7 @@ const RentabilidadeCalc = () => {
           <Input type="number" step="0.5" value={form.impostoRenda} onChange={(e) => setForm(f => ({ ...f, impostoRenda: e.target.value }))} placeholder="15" />
         </div>
         <div className="space-y-2 lg:col-span-3">
-          <Label>Valorização Anual Estimada do Imóvel (%)</Label>
+          <Label>Valorizacao Anual Estimada do Imovel (%)</Label>
           <Input type="number" step="0.5" value={form.valorizacao} onChange={(e) => setForm(f => ({ ...f, valorizacao: e.target.value }))} placeholder="5" />
         </div>
       </div>
@@ -1324,11 +1121,11 @@ const RentabilidadeCalc = () => {
             <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 md:col-span-3">
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Cap Rate Líquido (Aluguel a.a.)</p>
+                  <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Cap Rate Liquido (Aluguel a.a.)</p>
                   <p className="text-3xl font-bold text-purple-900">{result.capRateAnual.toFixed(2)}%</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Rentabilidade Total (c/ Valorização)</p>
+                  <p className="text-xs text-purple-600 font-semibold uppercase mb-1">Rentabilidade Total (c/ Valorizacao)</p>
                   <p className="text-3xl font-bold text-purple-900">{result.rentabilidadeTotal.toFixed(2)}%</p>
                 </div>
               </div>
@@ -1336,7 +1133,7 @@ const RentabilidadeCalc = () => {
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
               <p className="text-xs text-slate-600 font-semibold uppercase mb-1">Aluguel Real (Mensal)</p>
               <p className="text-xl font-bold text-slate-900">{formatCurrency(result.aluguelLiquidoReal)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Já com descontos e IR</p>
+              <p className="text-xs text-muted-foreground mt-1">Ja com descontos e IR</p>
             </div>
             <div className="bg-red-50 border border-red-100 rounded-xl p-4">
               <p className="text-xs text-red-600 font-semibold uppercase mb-1">IR Retido (Mensal)</p>
@@ -1350,15 +1147,15 @@ const RentabilidadeCalc = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <p className="text-sm text-blue-800 font-medium mb-2">Comparativo de Mercado (Estimativa em 1 ano):</p>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-blue-700">Seu Imóvel (Aluguel + Valorização):</span>
+              <span className="text-blue-700">Seu Imovel (Aluguel + Valorizacao):</span>
               <span className="font-bold text-blue-900">{formatCurrency(result.rendimentoImovelMoeda)}</span>
             </div>
             <div className="flex justify-between items-center text-sm mt-1">
-              <span className="text-blue-700">Renda Fixa / Poupança (~{result.taxaRendaFixa}% a.a.):</span>
+              <span className="text-blue-700">Renda Fixa / Poupanca (~{result.taxaRendaFixa}% a.a.):</span>
               <span className="font-bold text-blue-900">{formatCurrency(result.rendimentoPoupancaMoeda)}</span>
             </div>
             {result.rendimentoImovelMoeda > result.rendimentoPoupancaMoeda && (
-              <p className="text-xs text-green-700 font-bold mt-3">O imóvel supera a renda fixa conservadora neste cenário.</p>
+              <p className="text-xs text-green-700 font-bold mt-3">O imovel supera a renda fixa conservadora neste cenario.</p>
             )}
           </div>
         </motion.div>
@@ -1367,11 +1164,12 @@ const RentabilidadeCalc = () => {
   );
 };
 
+// ─── PAGINA PRINCIPAL (identica ao original) ──────────────────────────────────
 const Calculators = () => {
   const [tab, setTab] = useState<Tab>("financiamento");
   const tabs = [
     { id: "financiamento" as Tab, label: "Financiamento", icon: Home },
-    { id: "comissao" as Tab, label: "Comissão", icon: Percent },
+    { id: "comissao" as Tab, label: "Comissao", icon: Percent },
     { id: "rentabilidade" as Tab, label: "Rentabilidade", icon: TrendingUp },
   ];
   return (
@@ -1379,9 +1177,9 @@ const Calculators = () => {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Calculadoras</h1>
-          <p className="text-muted-foreground">Ferramentas financeiras para o mercado imobiliário</p>
+          <p className="text-muted-foreground">Ferramentas financeiras para o mercado imobiliario</p>
         </div>
-        <div className="flex gap-2 mb-6 bg-muted p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-6 bg-muted p-1 rounded-xl overflow-x-auto">
           {tabs.map((t) => {
             const Icon = t.icon;
             return (

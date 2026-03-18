@@ -161,11 +161,11 @@ export const useTaxasBancarias = () => {
     queryFn: async (): Promise<BancoConfig[]> => {
       if (!userId) return BANCOS_FALLBACK;
 
-      const { data, error } = await supabase
-        .from("taxas_bancarias")
-        .select("*")
-        .eq("user_id", userId)
-        .order("banco_id");
+      const { data, error } = await (supabase
+  .from("taxas_bancarias" as any)
+  .select("*")
+  .eq("user_id", userId)
+  .order("banco_id") as any);
 
       if (error) throw error;
 

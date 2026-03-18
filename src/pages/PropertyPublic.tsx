@@ -26,6 +26,7 @@ const PropertyPublic = () => {
   const [notFound, setNotFound]   = useState(false);
   const [imgIndex, setImgIndex]   = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [viewCount, setViewCount]   = useState<number>(0);
   const [sending, setSending]     = useState(false);
 
   const [form, setForm] = useState({
@@ -60,6 +61,18 @@ const PropertyPublic = () => {
           .eq("id", prop.created_by)
           .single();
         setCorretor(cor);
+      }
+
+      // Registrar visualização e buscar contagem
+      if (prop?.id) {
+        await (supabase.from("property_views" as any).insert({
+          property_id: prop.id,
+          user_agent: navigator.userAgent.slice(0, 200),
+        }) as any);
+        const { count } = await (supabase.from("property_views" as any)
+          .select("*", { count: "exact", head: true })
+          .eq("property_id", prop.id) as any);
+        setViewCount(count ?? 0);
       }
 
       setLoading(false);
@@ -134,9 +147,37 @@ const PropertyPublic = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div style={{ colorScheme: "light" }}>
+      <style>{`
+        .property-public-page {
+          --background: 0 0% 100%;
+          --foreground: 222 47% 11%;
+          --card: 0 0% 100%;
+          --card-foreground: 222 47% 11%;
+          --border: 214 32% 91%;
+          --input: 214 32% 91%;
+          --muted: 210 40% 96%;
+          --muted-foreground: 215 16% 47%;
+          background-color: #f8fafc;
+          color: #0f172a;
+        }
+        .property-public-page input,
+        .property-public-page textarea {
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border-color: #e2e8f0 !important;
+        }
+        .property-public-page input::placeholder,
+        .property-public-page textarea::placeholder {
+          color: #94a3b8 !important;
+        }
+        .property-public-page label {
+          color: #475569 !important;
+        }
+      `}</style>
+    <div className="property-public-page min-h-screen" style={{ backgroundColor: "#f8fafc", color: "#0f172a" }}>
       {/* Header */}
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-10">
+      <header className="border-b sticky top-0 z-10" style={{ backgroundColor: "#ffffff", borderColor: "#e2e8f0" }}>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <img src="/logo-r2.svg" alt="CRM R2" className="h-8" />
           <span className="text-xs text-slate-400">Powered by CRM R2</span>
@@ -150,6 +191,12 @@ const PropertyPublic = () => {
 
           {/* Galeria */}
           <div className="relative aspect-video bg-slate-200 rounded-2xl overflow-hidden">
+            {viewCount > 0 && (
+              <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-black/60 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                {viewCount} {viewCount === 1 ? "visualização" : "visualizações"}
+              </div>
+            )}
             {images.length > 0 ? (
               <>
                 <img src={images[imgIndex].url} className="w-full h-full object-cover" alt={property.title} />
@@ -184,7 +231,7 @@ const PropertyPublic = () => {
           </div>
 
           {/* Dados do imóvel */}
-          <div className="bg-white rounded-2xl p-6 space-y-4 border border-slate-100">
+          <div className="rounded-2xl p-6 space-y-4" style={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0" }}>
             <div>
               <p className="text-sm text-slate-500 capitalize">{typeLabels[property.type] || property.type}</p>
               <h1 className="text-2xl font-bold text-slate-900 mt-0.5">{property.title}</h1>
@@ -226,7 +273,7 @@ const PropertyPublic = () => {
         <div className="space-y-4">
           {/* Card corretor */}
           {corretor && (
-            <div className="bg-white rounded-2xl p-4 border border-slate-100 flex items-center gap-3">
+            <div className="rounded-2xl p-4 flex items-center gap-3" style={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0" }}>
               {corretor.avatar_url ? (
                 <img src={corretor.avatar_url} className="w-12 h-12 rounded-full object-cover" alt="" />
               ) : (
@@ -244,7 +291,7 @@ const PropertyPublic = () => {
           {/* Formulário de interesse */}
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-5 border border-slate-100 space-y-4"
+            className="bg-white rounded-2xl p-5 border border-slate-200 space-y-4" style={{ backgroundColor: "#ffffff", color: "#0f172a" }}
           >
             {submitted ? (
               <div className="text-center py-4 space-y-3">
@@ -318,6 +365,7 @@ const PropertyPublic = () => {
           </motion.div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

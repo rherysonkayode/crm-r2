@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Pencil, MapPin, BedDouble, Maximize,
-  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2,
+  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ImageUploadMultiple } from "@/components/ImageUploadMultiple";
@@ -52,6 +52,33 @@ interface VendaInfo {
   corretor: { full_name: string } | null;
 }
 
+const usePropertyViews = (userId: string | null | undefined, companyId: string | null | undefined) => {
+  return useQuery({
+    queryKey: ["property_views", userId, companyId],
+    queryFn: async () => {
+      if (!userId) return {};
+      // Busca imóveis do usuário (por created_by ou company_id)
+      let query = supabase.from("properties").select("id");
+      if (companyId) {
+        query = query.eq("company_id", companyId) as any;
+      } else {
+        query = query.eq("created_by", userId) as any;
+      }
+      const { data: props } = await query;
+      if (!props || props.length === 0) return {};
+      const ids = props.map((p: any) => p.id);
+      const { data } = await (supabase.from("property_views" as any).select("property_id").in("property_id", ids) as any);
+      if (!data) return {};
+      const counts: Record<string, number> = {};
+      (data as any[]).forEach((v: any) => {
+        counts[v.property_id] = (counts[v.property_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!userId,
+  });
+};
+
 const Properties = () => {
   const { data: properties, isLoading } = useProperties();
   const { data: allImages, refetch: refetchImages } = useAllPropertyImages();
@@ -59,6 +86,7 @@ const Properties = () => {
   const { data: profiles } = useProfiles();
   const { profile, isCorretor, isImobiliaria } = useAuth();
   const { canCreateProperties } = usePermissions();
+  const { data: viewCounts = {} } = usePropertyViews(profile?.id, profile?.company_id);
   const queryClient = useQueryClient();
 
   const [search,       setSearch]       = useState("");
@@ -509,6 +537,12 @@ const Properties = () => {
                     <div className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColors[prop.status] || "bg-slate-100 text-slate-600"}`}>
                       {statusOptions.find((s) => s.value === prop.status)?.label || prop.status}
                     </div>
+                    {(viewCounts as any)[prop.id] > 0 && (
+                      <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        <Eye className="w-2.5 h-2.5" />
+                        {(viewCounts as any)[prop.id]}
+                      </div>
+                    )}
                   </div>
 
                   {/* Info */}

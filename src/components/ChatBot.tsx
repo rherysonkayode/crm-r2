@@ -55,14 +55,14 @@ const ChatBot = () => {
   return (
     <>
       {/* Container de botões flutuantes */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+      <div className="fixed bottom-6 right-4 sm:right-6 z-50 flex flex-col items-center gap-3">
 
         {/* Botão do WhatsApp (VERDE) */}
         <a
           href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center"
+          className="bg-[#25D366] text-white p-3 sm:p-4 rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center"
           title="Fale direto pelo WhatsApp"
         >
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -73,7 +73,7 @@ const ChatBot = () => {
         {/* Botão do Hermes (ROXO) */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="bg-[#7E22CE] text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-colors flex items-center justify-center"
+          className="bg-[#7E22CE] text-white p-3 sm:p-4 rounded-full shadow-lg hover:bg-purple-700 transition-colors flex items-center justify-center"
         >
           <MessageCircle className="w-6 h-6" />
         </button>
@@ -86,7 +86,7 @@ const ChatBot = () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-50 w-80 sm:w-96"
+            className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-96 max-w-sm"
           >
             <Card className="border border-slate-200 shadow-xl overflow-hidden">
               <div className="bg-[#7E22CE] text-white p-4 flex justify-between items-center">

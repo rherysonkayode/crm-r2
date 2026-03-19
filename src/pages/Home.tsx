@@ -65,15 +65,20 @@ const Home = () => {
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center text-slate-900 mb-4">Planos que cabem no seu bolso</h2>
-          <p className="text-center text-slate-500 mb-8 max-w-2xl mx-auto">Precos acessiveis para voce comecar agora. Teste gratis de 3 dias sem compromisso.</p>
-          <div className="flex lg:grid lg:grid-cols-4 gap-6 overflow-x-auto pb-4">
+          <p className="text-center text-slate-500 mb-12 max-w-2xl mx-auto">Precos acessiveis para voce comecar agora. Teste gratis de 3 dias sem compromisso.</p>
+
+          <div className="flex lg:grid lg:grid-cols-4 gap-6 overflow-x-auto pb-4 items-start">
             {plans.map((plan) => (
-              <div key={plan.name} className="flex-shrink-0 w-[280px] sm:w-[300px] lg:w-auto">
-                <Card className={`relative flex flex-col h-full ${plan.popular ? "border-2 border-[#7E22CE] shadow-lg" : "border border-slate-200"}`}>
+              <div key={plan.name} className={`flex-shrink-0 w-[280px] sm:w-[300px] lg:w-auto ${plan.popular ? "pt-4" : ""}`}>
+                <Card className={`relative flex flex-col h-full overflow-visible ${plan.popular ? "border-2 border-[#7E22CE] shadow-xl" : "border border-slate-200"}`}>
                   {plan.popular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#7E22CE] text-white px-3 py-1 text-xs whitespace-nowrap">Mais popular</Badge>
+                    <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                      <span className="bg-[#7E22CE] text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md whitespace-nowrap">
+                        Mais popular
+                      </span>
+                    </div>
                   )}
-                  <CardHeader>
+                  <CardHeader className={plan.popular ? "pt-7" : ""}>
                     <CardTitle className="text-2xl font-bold text-slate-900">{plan.name}</CardTitle>
                     <CardDescription className="text-sm text-slate-500">{plan.description}</CardDescription>
                     <div className="mt-4">

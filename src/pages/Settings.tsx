@@ -77,7 +77,7 @@ const useTeamData = (companyId: string | null | undefined) => {
 
 // ─── Componente principal ──────────────────────────────────────────────────
 const Settings = () => {
-  const { profile, isCorretor, isImobiliaria, isCorretorVinculado, companyProfile } = useAuth();
+  const { profile, isCorretor, isImobiliaria, isCorretorVinculado, companyProfile, user } = useAuth();
   const { canCreateProperties, canManageUsers, canViewAllLeads } = usePermissions();
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
@@ -402,7 +402,7 @@ const Settings = () => {
                 </div>
                 <div className="bg-card rounded-xl border border-border p-4 sm:p-6 space-y-4">
                   <h2 className="font-semibold flex items-center gap-2"><Mail className="w-4 h-4 text-[#7E22CE]" /> Alterar e-mail</h2>
-                  <p className="text-sm text-muted-foreground">E-mail atual: <strong>{profile?.email || "-"}</strong></p>
+                  <p className="text-sm text-muted-foreground">E-mail atual: <strong>{user?.email || profile?.email || "-"}</strong></p>
                   <div className="space-y-2"><Label>Novo e-mail</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="novo@email.com" /></div>
                   <Button onClick={handleSaveEmail} disabled={savingEmail || !newEmail} className="bg-[#7E22CE] hover:bg-purple-700 w-full sm:w-auto">
                     {savingEmail ? "Enviando..." : "Alterar e-mail"}

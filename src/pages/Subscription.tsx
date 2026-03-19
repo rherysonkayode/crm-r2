@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CreditCard, Clock, AlertCircle, CheckCircle, LogOut } from "lucide-react";
+import { CreditCard, Clock, AlertCircle, CheckCircle, LogOut, Building2 } from "lucide-react";
 
 const plans = {
   start: {
@@ -47,7 +47,7 @@ const plans = {
 };
 
 const Subscription = () => {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, companyProfile, isCorretorVinculado } = useAuth();
   const [timeLeft, setTimeLeft] = useState<string>("");
 
   // Timer de contagem regressiva — só para trial ainda ativo
@@ -87,6 +87,71 @@ const Subscription = () => {
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-48 w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Corretor vinculado — mostrar info da imobiliária
+  if (isCorretorVinculado) {
+    const company = companyProfile;
+    const companyTrialEnd = company?.trial_end ? new Date(company.trial_end) : null;
+    const now = new Date();
+    const companyExpired =
+      company?.subscription_status === "expired" ||
+      (company?.subscription_status === "trial" && companyTrialEnd && companyTrialEnd < now);
+
+    return (
+      <AppLayout>
+        <div className="space-y-6 p-6 max-w-2xl mx-auto">
+          <div>
+            <h1 className="text-2xl font-bold">Assinatura</h1>
+            <p className="text-muted-foreground text-sm">Status do seu acesso</p>
+          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center py-6 space-y-4">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Building2 className="w-8 h-8 text-[#7E22CE]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">Acesso gerenciado pela imobiliária</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Seu acesso ao CRM R2 está incluído no plano da imobiliária à qual você está vinculado.
+                    Você não precisa de uma assinatura separada.
+                  </p>
+                </div>
+                {company && (
+                  <div className="w-full p-4 bg-muted/40 rounded-xl text-left space-y-2">
+                    <p className="text-xs text-muted-foreground uppercase font-semibold">Imobiliária</p>
+                    <p className="font-bold">{company.full_name}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Status:</span>
+                      {companyExpired
+                        ? <Badge variant="destructive">Expirado</Badge>
+                        : company?.subscription_status === "active"
+                          ? <Badge className="bg-green-100 text-green-700">Ativo</Badge>
+                          : <Badge className="bg-blue-100 text-blue-700">Trial</Badge>
+                      }
+                    </div>
+                    {!companyExpired && companyTrialEnd && company?.subscription_status === "trial" && (
+                      <p className="text-xs text-muted-foreground">
+                        Trial válido até {companyTrialEnd.toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {companyExpired && (
+                  <Alert variant="destructive" className="w-full">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      O plano da imobiliária expirou. Entre em contato com o responsável para renovar o acesso.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </AppLayout>
     );

@@ -20,7 +20,7 @@ export interface AppNotification {
 
 // ─── Lê notificações do banco ──────────────────────────────────────────────
 export const useNotifications = () => {
-  const { profile } = useAuth();
+  const { profile, companyProfile, isCorretorVinculado } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -33,7 +33,7 @@ export const useNotifications = () => {
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data ?? []) as AppNotification[];
+      return (data ?? []) as unknown as AppNotification[];
     },
     enabled: !!profile,
   });
@@ -60,7 +60,7 @@ export const useNotifications = () => {
 // ─── Marcar uma como lida ──────────────────────────────────────────────────
 export const useMarkAsRead = () => {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, companyProfile, isCorretorVinculado } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       await supabase.from("notifications" as any).update({ read: true }).eq("id", id);
@@ -72,7 +72,7 @@ export const useMarkAsRead = () => {
 // ─── Marcar todas como lidas ───────────────────────────────────────────────
 export const useMarkAllAsRead = () => {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, companyProfile, isCorretorVinculado } = useAuth();
   return useMutation({
     mutationFn: async () => {
       await supabase
@@ -88,7 +88,7 @@ export const useMarkAllAsRead = () => {
 // ─── Deletar uma notificação ───────────────────────────────────────────────
 export const useDeleteNotification = () => {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, companyProfile, isCorretorVinculado } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       await supabase.from("notifications" as any).delete().eq("id", id);
@@ -100,7 +100,7 @@ export const useDeleteNotification = () => {
 // ─── Limpar todas ─────────────────────────────────────────────────────────
 export const useClearAllNotifications = () => {
   const queryClient = useQueryClient();
-  const { profile } = useAuth();
+  const { profile, companyProfile, isCorretorVinculado } = useAuth();
   return useMutation({
     mutationFn: async () => {
       await supabase.from("notifications" as any).delete().eq("user_id", profile!.id);
@@ -126,7 +126,7 @@ export const createNotification = async (
 // Chamado uma vez ao carregar o app. Cria notificações para eventos de hoje
 // e amanhã que ainda não geraram notificação.
 export const useCalendarNotifications = () => {
-  const { profile } = useAuth();
+  const { profile, companyProfile, isCorretorVinculado } = useAuth();
 
   useEffect(() => {
     if (!profile) return;
@@ -167,8 +167,14 @@ export const useCalendarNotifications = () => {
       }
 
       // Plano expirando em até 7 dias
-      if (profile.trial_end) {
-        const days = differenceInDays(parseISO(profile.trial_end), new Date());
+      // Corretor vinculado: usa trial da imobiliária
+      const trialEndRef = isCorretorVinculado
+        ? companyProfile?.trial_end
+        : profile.trial_end;
+
+      // Corretor vinculado não recebe notificação de plano — é responsabilidade da imobiliária
+      if (!isCorretorVinculado && trialEndRef) {
+        const days = differenceInDays(parseISO(trialEndRef), new Date());
         if (days >= 0 && days <= 7) {
           const planKey = `notif_plan_${format(new Date(), "yyyy-MM-dd")}_${profile.id}`;
           if (!sessionStorage.getItem(planKey)) {
@@ -177,7 +183,7 @@ export const useCalendarNotifications = () => {
               profile.id, "plan",
               days === 0 ? "⚠️ Seu plano expira hoje!" : `⚠️ Plano expira em ${days} dia${days > 1 ? "s" : ""}`,
               "Faça upgrade para continuar usando o CRM sem interrupções.",
-              "/#/assinatura"
+              "/#/subscription"
             );
           }
         }

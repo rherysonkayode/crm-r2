@@ -44,7 +44,7 @@ const DashboardRouter = () => {
 };
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, profile, loading, profileLoading } = useAuth();
+  const { user, profile, companyProfile, loading, profileLoading, isCorretorVinculado } = useAuth();
   const location = useLocation();
   const [profileTimeout, setProfileTimeout] = useState(false);
 
@@ -76,11 +76,27 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <>{children}</>;
   }
 
-  // Superadmin: acesso irrestrito, sem verificação de plano
+  // Superadmin: acesso irrestrito
   if (profile.role === "superadmin") return <>{children}</>;
 
-  const trialEnd  = profile.trial_end ? new Date(profile.trial_end) : null;
-  const now       = new Date();
+  // Corretor vinculado: herda status da imobiliária
+  if (isCorretorVinculado) {
+    // Se ainda carregando o perfil da empresa, aguarda
+    if (!companyProfile) return <>{children}</>;
+    const companyTrialEnd = companyProfile.trial_end ? new Date(companyProfile.trial_end) : null;
+    const now = new Date();
+    const companyExpired =
+      companyProfile.subscription_status === "expired" ||
+      (companyProfile.subscription_status === "trial" && companyTrialEnd && companyTrialEnd < now);
+    if (companyExpired && location.pathname !== "/subscription") {
+      return <Navigate to="/subscription" replace />;
+    }
+    return <>{children}</>;
+  }
+
+  // Corretor independente e imobiliária: verificar próprio perfil
+  const trialEnd = profile.trial_end ? new Date(profile.trial_end) : null;
+  const now      = new Date();
   const isExpired =
     profile.subscription_status === "expired" ||
     (profile.subscription_status === "trial" && trialEnd && trialEnd < now);

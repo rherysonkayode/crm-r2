@@ -30,12 +30,14 @@ export type Profile = {
 type AuthContextType = {
   user: User | null;
   profile: Profile | null;
+  companyProfile: Profile | null; // perfil da imobiliária (quando corretor vinculado)
   loading: boolean;
   profileLoading: boolean;
   isCorretor: boolean;
   isImobiliaria: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isCorretorVinculado: boolean; // corretor com company_id preenchido
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -65,6 +67,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     enabled: !!user?.id,
     retry: 1,
     staleTime: 30000,
+  });
+
+  // Buscar perfil da imobiliária quando corretor vinculado
+  const isCorretorVinculado = profile?.role === 'corretor' && !!profile?.company_id;
+
+  const { data: companyProfile } = useQuery({
+    queryKey: ['company_profile', profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('company_id', profile.company_id)
+        .eq('role', 'imobiliaria')
+        .limit(1)
+        .single();
+      if (error) return null;
+      return data as Profile;
+    },
+    enabled: isCorretorVinculado,
+    staleTime: 60000,
   });
 
   useEffect(() => {
@@ -99,12 +122,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     <AuthContext.Provider value={{
       user,
       profile: profile || null,
+      companyProfile: companyProfile || null,
       loading,
       profileLoading,
       isCorretor,
       isImobiliaria,
       isAdmin,
       isSuperAdmin,
+      isCorretorVinculado,
       signOut,
       refreshProfile,
     }}>

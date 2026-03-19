@@ -23,7 +23,7 @@ interface AppSidebarProps {
 
 export const AppSidebar = ({ onClose }: AppSidebarProps) => {
   const location = useLocation();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isCorretorVinculado } = useAuth();
   const { canManageUsers } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -45,7 +45,7 @@ export const AppSidebar = ({ onClose }: AppSidebarProps) => {
     { icon: PlusCircle,     label: "Anuncie Comigo", path: "/advertise",   visible: !isSuperAdmin },
     { icon: Calculator,     label: "Calculadoras",   path: "/calculators", visible: !isSuperAdmin },
     { icon: UserPlus,       label: "Equipe",         path: "/team",        visible: !isSuperAdmin && isImobiliaria },
-    { icon: CreditCard,     label: "Assinatura",     path: "/subscription",visible: !isSuperAdmin },
+    { icon: CreditCard,     label: "Assinatura",     path: "/subscription",visible: !isSuperAdmin && !isCorretorVinculado },
     { icon: Settings,       label: "Configurações",  path: "/settings",    visible: !isSuperAdmin },
   ];
 

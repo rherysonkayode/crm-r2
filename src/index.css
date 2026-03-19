@@ -118,11 +118,33 @@
   }
 }
 
-/* Corrigir autocomplete do browser nos inputs */
+/* ── Autocomplete fix — light mode ─────────────────────────────────────── */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #f8fafc inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ── Autocomplete fix — dark mode ──────────────────────────────────────── */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #1e2535 inset !important;
+  -webkit-text-fill-color: #e8eaf0 !important;
+  caret-color: #e8eaf0;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ── Página de auth: sempre tema claro nos inputs ──────────────────────── */
+.auth-light input:-webkit-autofill,
+.auth-light input:-webkit-autofill:hover,
+.auth-light input:-webkit-autofill:focus,
+.auth-light input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 30px #f8fafc inset !important;
   -webkit-text-fill-color: #0f172a !important;
   caret-color: #0f172a;

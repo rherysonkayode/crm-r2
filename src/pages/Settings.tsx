@@ -77,7 +77,7 @@ const useTeamData = (companyId: string | null | undefined) => {
 
 // ─── Componente principal ──────────────────────────────────────────────────
 const Settings = () => {
-  const { profile, isCorretor, isImobiliaria } = useAuth();
+  const { profile, isCorretor, isImobiliaria, isCorretorVinculado, companyProfile } = useAuth();
   const { canCreateProperties, canManageUsers, canViewAllLeads } = usePermissions();
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
@@ -483,19 +483,55 @@ const Settings = () => {
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="bg-card rounded-xl border border-border p-4 sm:p-6 space-y-4">
                   <h2 className="font-semibold flex items-center gap-2"><Building2 className="w-4 h-4 text-[#7E22CE]" /> Plano atual</h2>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-bold px-3 py-1.5 rounded-full bg-purple-100 text-[#7E22CE] uppercase tracking-wide">{profile?.plan || "Free"}</span>
-                    <span className="text-sm text-muted-foreground">{profile?.plan ? `Plano ${profile.plan} ativo` : "Funcionalidades basicas incluidas"}</span>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-xl p-4 sm:p-5 space-y-3">
-                    <p className="font-semibold text-slate-800">Faca upgrade do seu plano</p>
-                    <p className="text-sm text-slate-500">Desbloqueie mais leads, relatorios avancados e convite de corretores.</p>
-                    <Button className="bg-[#7E22CE] hover:bg-purple-700 w-full" onClick={() => window.location.href = "/#/assinatura"}>
-                      Ver planos disponiveis
-                    </Button>
-                  </div>
-                  {profile?.trial_end && (
-                    <p className="text-xs text-muted-foreground">Periodo de teste ate: <strong>{new Date(profile.trial_end).toLocaleDateString("pt-BR")}</strong></p>
+
+                  {isCorretorVinculado ? (
+                    /* Corretor vinculado — mostrar info da imobiliária */
+                    <div className="space-y-4">
+                      <div className="flex flex-col items-center text-center py-6 space-y-3 bg-muted/30 rounded-xl">
+                        <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
+                          <Building2 className="w-7 h-7 text-[#7E22CE]" />
+                        </div>
+                        <div>
+                          <p className="font-bold">Acesso gerenciado pela imobiliária</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Seu acesso está incluído no plano da imobiliária. Você não precisa de assinatura separada.
+                          </p>
+                        </div>
+                      </div>
+                      {companyProfile && (
+                        <div className="p-4 bg-muted/40 rounded-xl space-y-2">
+                          <p className="text-xs text-muted-foreground uppercase font-semibold">Imobiliária</p>
+                          <p className="font-bold">{companyProfile.full_name}</p>
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">Plano:</span>
+                            <span className="font-bold text-[#7E22CE] uppercase">{companyProfile.plan || "—"}</span>
+                          </div>
+                          {companyProfile.trial_end && companyProfile.subscription_status === "trial" && (
+                            <p className="text-xs text-muted-foreground">
+                              Trial válido até: <strong>{new Date(companyProfile.trial_end).toLocaleDateString("pt-BR")}</strong>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Imobiliária / corretor independente — mostrar plano e upgrade */
+                    <>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-sm font-bold px-3 py-1.5 rounded-full bg-purple-100 text-[#7E22CE] uppercase tracking-wide">{profile?.plan || "Free"}</span>
+                        <span className="text-sm text-muted-foreground">{profile?.plan ? `Plano ${profile.plan} ativo` : "Funcionalidades basicas incluidas"}</span>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-xl p-4 sm:p-5 space-y-3">
+                        <p className="font-semibold text-slate-800">Faca upgrade do seu plano</p>
+                        <p className="text-sm text-slate-500">Desbloqueie mais leads, relatorios avancados e convite de corretores.</p>
+                        <Button className="bg-[#7E22CE] hover:bg-purple-700 w-full" onClick={() => window.location.href = "/#/subscription"}>
+                          Ver planos disponiveis
+                        </Button>
+                      </div>
+                      {profile?.trial_end && (
+                        <p className="text-xs text-muted-foreground">Periodo de teste ate: <strong>{new Date(profile.trial_end).toLocaleDateString("pt-BR")}</strong></p>
+                      )}
+                    </>
                   )}
                 </div>
               </motion.div>

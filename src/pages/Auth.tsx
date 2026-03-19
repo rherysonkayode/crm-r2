@@ -44,68 +44,6 @@ const formatCNPJ = (v: string) => {
   return v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})/, "$1.$2.$3/$4-$5").slice(0, 18);
 };
 
-// ===== FUNÇÕES DE VALIDAÇÃO =====
-const isValidCPF = (cpf: string) => {
-  const clean = cpf.replace(/\D/g, "");
-  if (clean.length !== 11) return false;
-  
-  if (/^(\d)\1+$/.test(clean)) return false;
-  
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(clean.charAt(i)) * (10 - i);
-  }
-  let rev = 11 - (sum % 11);
-  if (rev === 10 || rev === 11) rev = 0;
-  if (rev !== parseInt(clean.charAt(9))) return false;
-  
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(clean.charAt(i)) * (11 - i);
-  }
-  rev = 11 - (sum % 11);
-  if (rev === 10 || rev === 11) rev = 0;
-  if (rev !== parseInt(clean.charAt(10))) return false;
-  
-  return true;
-};
-
-const isValidCNPJ = (cnpj: string) => {
-  const clean = cnpj.replace(/\D/g, "");
-  if (clean.length !== 14) return false;
-  
-  if (/^(\d)\1+$/.test(clean)) return false;
-  
-  let size = clean.length - 2;
-  let numbers = clean.substring(0, size);
-  const digits = clean.substring(size);
-  let sum = 0;
-  let pos = size - 7;
-  
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  
-  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== parseInt(digits.charAt(0))) return false;
-  
-  size = size + 1;
-  numbers = clean.substring(0, size);
-  sum = 0;
-  pos = size - 7;
-  
-  for (let i = size; i >= 1; i--) {
-    sum += parseInt(numbers.charAt(size - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  
-  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== parseInt(digits.charAt(1))) return false;
-  
-  return true;
-};
-
 const SUPABASE_URL = "https://ecmahLxwttfeatvpxwng.supabase.co";
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
@@ -117,7 +55,6 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -132,6 +69,7 @@ const Auth = () => {
   const [step, setStep] = useState(1);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const navigate = useNavigate();
 
   const passwordRequirements = [
@@ -151,70 +89,16 @@ const Auth = () => {
     setFullName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, ""));
   };
 
-  // ===== FUNÇÕES DE VERIFICAÇÃO NO BANCO =====
-  const checkCpfCnpjExists = async (doc: string): Promise<boolean> => {
-    if (!doc) return false;
-    
+  const checkCpfCnpjExists = async (doc: string) => {
     const clean = doc.replace(/\D/g, "");
-    if (clean.length < 11) return false;
-    
-    try {
-      // 1. Verificar na tabela profiles
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("cpf", clean)
-        .maybeSingle();
-      
-      if (profileData) return true;
-      
-      // 2. Verificar no auth.users via RPC
-      const { data: authData, error: authError } = await supabase
-        .rpc('check_cpf_in_auth', { cpf_to_check: clean });
-      
-      if (authError) {
-        console.error("Erro ao verificar no auth:", authError);
-        return false;
-      }
-      
-      return authData || false;
-    } catch (error) {
-      console.error("Erro na verificação:", error);
-      return false;
-    }
+    const { data } = await supabase.from("profiles").select("id").eq("cpf", clean).maybeSingle();
+    return !!data;
   };
 
-  // ===== FUNÇÃO CORRIGIDA - AGORA VERIFICA NO AUTH TAMBÉM =====
-  const checkPhoneExists = async (phoneToCheck: string): Promise<boolean> => {
-    if (!phoneToCheck) return false;
-    
+  const checkPhoneExists = async (phoneToCheck: string) => {
     const clean = phoneToCheck.replace(/\D/g, "");
-    if (clean.length < 10) return false;
-    
-    try {
-      // 1. Verificar na tabela profiles
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("phone", clean)
-        .maybeSingle();
-      
-      if (profileData) return true;
-      
-      // 2. Verificar no auth.users via RPC
-      const { data: authData, error: authError } = await supabase
-        .rpc('check_phone_in_auth', { phone_to_check: clean });
-      
-      if (authError) {
-        console.error("Erro ao verificar telefone no auth:", authError);
-        return false;
-      }
-      
-      return authData || false;
-    } catch (error) {
-      console.error("Erro na verificação:", error);
-      return false;
-    }
+    const { data } = await supabase.from("profiles").select("id").eq("phone", clean).maybeSingle();
+    return !!data;
   };
 
   const checkEmailExists = async (emailToCheck: string) => {
@@ -269,116 +153,29 @@ const Auth = () => {
       if (!fullName) { toast.error("Informe seu nome completo"); return; }
       if (!/^[a-zA-Z\u00C0-\u00FF\s]+$/.test(fullName)) { toast.error("Nome deve conter apenas letras"); return; }
       if (!phone || phone.replace(/\D/g, "").length < 11) { toast.error("Informe um celular válido com DDD"); return; }
-      
       setLoading(true);
       try {
-        // ===== LIMPAR E NORMALIZAR OS DADOS =====
-        const cpfToCheck = accountType === "corretor" 
-          ? (cpf?.replace(/\D/g, "") || null) 
-          : (docType === "cpf" ? (docValue?.replace(/\D/g, "") || null) : null);
-        
-        const cnpjToCheck = accountType === "imobiliaria" && docType === "cnpj" 
-          ? (docValue?.replace(/\D/g, "") || null) 
-          : null;
-        
-        const phoneToCheck = phone?.replace(/\D/g, "") || null;
-        
-        console.log("🔍 VERIFICANDO DUPLICIDADE:", {
-          cpfToCheck,
-          cnpjToCheck,
-          phoneToCheck
-        });
-        
-        // Verificar telefone (se foi preenchido)
-        if (phoneToCheck) {
-          const phoneExists = await checkPhoneExists(phoneToCheck);
-          if (phoneExists) { 
-            toast.error("❌ Este celular já está cadastrado. Use outro número."); 
-            setLoading(false); 
-            return; 
-          }
+        const phoneExists = await checkPhoneExists(phone);
+        if (phoneExists) { toast.error("Este celular já está cadastrado. Use outro número."); setLoading(false); return; }
+        const docToCheck = accountType === "corretor" ? cpf : docValue;
+        if (docToCheck) {
+          const docExists = await checkCpfCnpjExists(docToCheck);
+          if (docExists) { toast.error("Este CPF/CNPJ já está cadastrado."); setLoading(false); return; }
         }
-        
-        // Verificar CPF (se for corretor)
-        if (accountType === "corretor" && cpfToCheck) {
-          // Validar formato do CPF
-          if (!isValidCPF(cpfToCheck)) {
-            toast.error("❌ CPF inválido. Verifique o número digitado.");
-            setLoading(false);
-            return;
-          }
-          
-          // Verificar se CPF já existe
-          const cpfExists = await checkCpfCnpjExists(cpfToCheck);
-          if (cpfExists) { 
-            toast.error("❌ Este CPF já está cadastrado em outra conta."); 
-            setLoading(false); 
-            return; 
-          }
-        }
-        
-        // Verificar CNPJ (se for imobiliária)
-        if (accountType === "imobiliaria" && cnpjToCheck) {
-          // Validar formato do CNPJ
-          if (!isValidCNPJ(cnpjToCheck)) {
-            toast.error("❌ CNPJ inválido. Verifique o número digitado.");
-            setLoading(false);
-            return;
-          }
-          
-          // Verificar se CNPJ já existe (na coluna cpf mesmo!)
-          const cnpjExists = await checkCpfCnpjExists(cnpjToCheck);
-          if (cnpjExists) { 
-            toast.error("❌ Este CNPJ já está cadastrado em outra conta."); 
-            setLoading(false); 
-            return; 
-          }
-        }
-        
-        // Se passou por todas as validações, vai para o passo 3
-        setStep(3);
       } catch (err) {
-        console.error("Erro na validação:", err);
-        toast.error("Erro ao verificar dados. Tente novamente.");
+        console.error(err);
       } finally {
         setLoading(false);
       }
+      if (accountType === "corretor" && (!cpf || cpf.length < 14)) { toast.error("CPF obrigatório"); return; }
+      if (accountType === "imobiliaria" && (!companyName || !docValue)) { toast.error("Preencha os dados da imobiliária"); return; }
+      setStep(3);
       return;
     }
 
     if (!isLogin && step === 3) {
       if (!acceptTerms) { toast.error("Aceite os Termos de Uso"); return; }
       setLoading(true);
-      
-      // ===== LOG DETALHADO DO QUE SERÁ ENVIADO =====
-      const cpfParaEnviar = accountType === "corretor" 
-        ? (cpf?.replace(/\D/g, "") || null) 
-        : (docValue?.replace(/\D/g, "") || null);
-      
-      const telefoneParaEnviar = phone?.replace(/\D/g, "") || null;
-      
-      console.log("🚀 FRONTEND - DADOS DO STEP 3:", {
-        fullName,
-        phone_bruto: phone,
-        cpf_bruto: cpf,
-        docType,
-        docValue_bruto: docValue,
-        phone_limpo: telefoneParaEnviar,
-        cpf_limpo: cpfParaEnviar,
-        role: accountType,
-        area_atuacao: areaAtuacao,
-        plan: selectedPlan,
-        user_metadata: {
-          full_name: fullName,
-          phone: telefoneParaEnviar,
-          company_name: accountType === "imobiliaria" ? companyName : fullName,
-          role: accountType,
-          area_atuacao: areaAtuacao,
-          plan: selectedPlan,
-          cpf: cpfParaEnviar,
-        }
-      });
-
       try {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -387,12 +184,13 @@ const Auth = () => {
             emailRedirectTo: "https://crm-r2.vercel.app/confirm-email",
             data: {
               full_name: fullName,
-              phone: telefoneParaEnviar,
+              phone,
               company_name: accountType === "imobiliaria" ? companyName : fullName,
               role: accountType,
               area_atuacao: areaAtuacao,
               plan: selectedPlan,
-              cpf: cpfParaEnviar,
+              cpf: accountType === "corretor" ? cpf : (docType === "cpf" ? docValue : null),
+              cnpj: accountType === "imobiliaria" && docType === "cnpj" ? docValue : null,
             },
           },
         });
@@ -400,15 +198,10 @@ const Auth = () => {
         if (error) throw error;
 
         if (data.user) {
-          console.log("✅ FRONTEND - USUÁRIO CRIADO NO AUTH:", {
-            user_id: data.user.id,
-            metadata_enviado: data.user.user_metadata
-          });
-
           const { data: sessionData } = await supabase.auth.getSession();
           const authToken = sessionData.session?.access_token ?? ANON_KEY;
 
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/create-profile`, {
+          await fetch(`${SUPABASE_URL}/functions/v1/create-profile`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -417,45 +210,12 @@ const Auth = () => {
             },
             body: JSON.stringify({ user: data.user }),
           });
-
-          // 👇 VER O QUE VEIO DA EDGE FUNCTION
-          const responseText = await response.text();
-          console.log("📦 RESPOSTA CRUA DA EDGE FUNCTION:", responseText);
-
-          let result;
-          try {
-            result = JSON.parse(responseText);
-          } catch (e) {
-            console.error("❌ ERRO AO PARSEAR RESPOSTA:", responseText);
-            throw new Error("Erro na comunicação com o servidor");
-          }
-
-          console.log("📦 RESPOSTA PARSEDA:", result);
-
-          if (!response.ok) {
-            let mensagemErro = result.error || "Erro ao criar perfil";
-            
-            // Se for erro de duplicata
-            if (result.error?.includes("duplicate key") || result.error?.includes("already exists")) {
-              if (result.error?.includes("cpf")) {
-                mensagemErro = "❌ Este CPF/CNPJ já está cadastrado em outra conta.";
-              } else if (result.error?.includes("phone")) {
-                mensagemErro = "❌ Este telefone já está cadastrado em outra conta.";
-              }
-            }
-            
-            throw new Error(mensagemErro);
-          }
         }
 
         toast.success("Cadastro realizado! Verifique seu e-mail para confirmar sua conta.");
         resetAllStates();
         setIsLogin(true);
       } catch (error: any) {
-        console.error("❌ FRONTEND - ERRO NO CADASTRO:", {
-          message: error.message,
-          error: error
-        });
         toast.error(error.message);
       } finally {
         setLoading(false);
@@ -478,7 +238,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white font-sans">
+    <div className="auth-light min-h-screen flex flex-col bg-white font-sans">
       <div className="flex-1 flex">
         <div className="hidden lg:flex lg:w-1/2 bg-[#7E22CE] items-center justify-center p-12 relative overflow-hidden">
           <div className="relative z-10 text-center">
@@ -629,25 +389,8 @@ const Auth = () => {
                             <Label>CPF</Label>
                             <div className="relative">
                               <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                              <Input 
-                                value={cpf} 
-                                onChange={(e) => setCpf(formatCPF(e.target.value))} 
-                                className={cn(
-                                  "pl-10 py-6 rounded-2xl",
-                                  cpf && !isValidCPF(cpf) && "border-red-500 focus-visible:ring-red-500"
-                                )} 
-                                placeholder="000.000.000-00" 
-                                required 
-                              />
+                              <Input value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="pl-10 py-6 rounded-2xl" placeholder="000.000.000-00" required />
                             </div>
-                            {cpf && (
-                              <p className={cn(
-                                "text-xs mt-1",
-                                isValidCPF(cpf) ? "text-green-600" : "text-red-500"
-                              )}>
-                                {isValidCPF(cpf) ? "✓ CPF válido" : "✗ CPF inválido"}
-                              </p>
-                            )}
                           </div>
                         )}
 
@@ -669,30 +412,8 @@ const Auth = () => {
                               </div>
                               <div className="relative">
                                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input 
-                                  value={docValue} 
-                                  onChange={(e) => setDocValue(docType === "cpf" ? formatCPF(e.target.value) : formatCNPJ(e.target.value))} 
-                                  className={cn(
-                                    "pl-10 py-6 rounded-2xl bg-white",
-                                    docValue && docType === "cpf" && !isValidCPF(docValue) && "border-red-500",
-                                    docValue && docType === "cnpj" && !isValidCNPJ(docValue) && "border-red-500"
-                                  )} 
-                                  placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"} 
-                                  required 
-                                />
+                                <Input value={docValue} onChange={(e) => setDocValue(docType === "cpf" ? formatCPF(e.target.value) : formatCNPJ(e.target.value))} className="pl-10 py-6 rounded-2xl bg-white" placeholder={docType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"} required />
                               </div>
-                              {docValue && (
-                                <p className={cn(
-                                  "text-xs mt-1",
-                                  (docType === "cpf" && isValidCPF(docValue)) || (docType === "cnpj" && isValidCNPJ(docValue)) 
-                                    ? "text-green-600" 
-                                    : "text-red-500"
-                                )}>
-                                  {(docType === "cpf" && isValidCPF(docValue)) || (docType === "cnpj" && isValidCNPJ(docValue))
-                                    ? `✓ ${docType === "cpf" ? "CPF" : "CNPJ"} válido`
-                                    : `✗ ${docType === "cpf" ? "CPF" : "CNPJ"} inválido`}
-                                </p>
-                              )}
                             </div>
                           </>
                         )}

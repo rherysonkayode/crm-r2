@@ -57,7 +57,7 @@ const PropertyPublic = () => {
       if (prop.created_by) {
         const { data: cor } = await supabase
           .from("profiles")
-          .select("full_name, phone, avatar_url")
+          .select("full_name, phone, telefone, avatar_url")
           .eq("id", prop.created_by)
           .single();
         setCorretor(cor);
@@ -127,8 +127,9 @@ const PropertyPublic = () => {
     }
   };
 
-  const whatsappLink = corretor?.phone
-    ? `https://wa.me/55${corretor.phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá! Vi o imóvel "${property?.title}" e tenho interesse. Meu nome é ${form.name || "..."}.`)}`
+  const corretorPhone = corretor?.phone || corretor?.telefone || null;
+  const whatsappLink = corretorPhone
+    ? `https://wa.me/55${corretorPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá! Vi o imóvel "${property?.title}" e tenho interesse. Meu nome é ${form.name || "..."}.`)}`
     : null;
 
   if (loading) return (

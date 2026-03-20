@@ -30,6 +30,8 @@ import FAQ from "./pages/FAQ";
 import Convite from "./pages/Convite";
 import Home from "./pages/Home";
 import Subscription from "./pages/Subscription";
+import AssinaturaSucesso from "./pages/AssinaturaSucesso";
+import AssinaturaCancelado from "./pages/AssinaturaCancelado";
 import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 import ChatBot from "@/components/ChatBot";
@@ -155,7 +157,6 @@ const App = () => (
               <Route path="/faq"                   element={<FAQ />} />
               <Route path="/convite/:token"        element={<Convite />} />
               <Route path="/imovel/:id"             element={<PropertyPublic />} />
-              <Route path="/imovel/:id"             element={<PropertyPublic />} />
 
               {/* Painel exclusivo do gestor */}
               <Route path="/admin"                 element={<SuperAdminRoute><AdminPanel /></SuperAdminRoute>} />
@@ -174,6 +175,9 @@ const App = () => (
               <Route path="/calculators"           element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
               <Route path="/advertise"             element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
               <Route path="/sales"                element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+
+              <Route path="/assinatura/sucesso"     element={<AssinaturaSucesso />} />
+              <Route path="/assinatura/cancelado"   element={<AssinaturaCancelado />} />
 
               <Route path="*"                      element={<NotFound />} />
             </Routes>

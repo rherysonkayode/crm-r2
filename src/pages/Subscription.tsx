@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,10 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CreditCard, Clock, AlertCircle, CheckCircle, LogOut, Building2 } from "lucide-react";
+import { CreditCard, Clock, AlertCircle, CheckCircle, LogOut, Building2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+const SUPABASE_FUNCTIONS_URL = "https://ecmahlxwttfeatvpxwng.supabase.co/functions/v1";
 
 const plans = {
   start: {
@@ -47,38 +51,33 @@ const plans = {
 };
 
 const Subscription = () => {
-  const { profile, signOut, companyProfile, isCorretorVinculado } = useAuth();
+  const { profile, signOut, companyProfile, isCorretorVinculado, user } = useAuth();
   const [timeLeft, setTimeLeft] = useState<string>("");
+  const [subscribing, setSubscribing] = useState<string | null>(null);
 
-  // Timer de contagem regressiva — só para trial ainda ativo
+  // Timer de contagem regressiva
   useEffect(() => {
     if (!profile) return;
     if (profile.subscription_status !== "trial" || !profile.trial_end) return;
     const trialEnd = new Date(profile.trial_end);
-    if (trialEnd < new Date()) return; // já expirou, não precisa de timer
+    if (trialEnd < new Date()) return;
 
     const updateTimer = () => {
       const now = new Date();
       const diffMs = trialEnd.getTime() - now.getTime();
       if (diffMs <= 0) { setTimeLeft("Expirado"); return; }
-
-      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const days    = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours   = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-      if (days > 0) setTimeLeft(`${days} dia${days > 1 ? "s" : ""} e ${hours}h`);
+      if (days > 0)       setTimeLeft(`${days} dia${days > 1 ? "s" : ""} e ${hours}h`);
       else if (hours > 0) setTimeLeft(`${hours}h e ${minutes}min`);
-      else setTimeLeft(`${minutes} minuto${minutes !== 1 ? "s" : ""}`);
+      else                setTimeLeft(`${minutes} minuto${minutes !== 1 ? "s" : ""}`);
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 60000);
     return () => clearInterval(interval);
   }, [profile]);
-
-  // REMOVIDO: useEffect que atualizava status no banco e chamava refreshProfile()
-  // Isso causava loop: profile ficava null momentaneamente → ProtectedRoute redirecionava
-  // A expiração é calculada em tempo real no frontend (ProtectedRoute + aqui embaixo)
 
   if (!profile) {
     return (
@@ -160,46 +159,65 @@ const Subscription = () => {
   const planKey = profile.plan && profile.plan in plans ? profile.plan : "start";
   const currentPlan = plans[planKey as keyof typeof plans];
 
-  // Calcula estado real em tempo real (não depende só do campo do banco)
   const trialEnd = profile.trial_end ? new Date(profile.trial_end) : null;
   const now = new Date();
   const isExpired =
     profile.subscription_status === "expired" ||
     (profile.subscription_status === "trial" && trialEnd !== null && trialEnd < now);
   const isActive = profile.subscription_status === "active";
-  const isTrial = profile.subscription_status === "trial" && !isExpired;
+  const isTrial  = profile.subscription_status === "trial" && !isExpired;
 
   const trialProgressValue =
     trialEnd && profile.trial_start
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            ((now.getTime() - new Date(profile.trial_start).getTime()) /
-              (trialEnd.getTime() - new Date(profile.trial_start).getTime())) *
-              100
-          )
-        )
+      ? Math.min(100, Math.max(0,
+          ((now.getTime() - new Date(profile.trial_start).getTime()) /
+           (trialEnd.getTime() - new Date(profile.trial_start).getTime())) * 100
+        ))
       : trialEnd
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            100 -
-              ((trialEnd.getTime() - now.getTime()) / (3 * 24 * 60 * 60 * 1000)) * 100
-          )
-        )
-      : 0;
+        ? Math.min(100, Math.max(0,
+            100 - ((trialEnd.getTime() - now.getTime()) / (3 * 24 * 60 * 60 * 1000)) * 100
+          ))
+        : 0;
 
   const getStatusBadge = () => {
     if (isExpired) return <Badge variant="destructive">Expirado</Badge>;
-    if (isActive) return <Badge className="bg-green-100 text-green-700 border-green-200">Ativo</Badge>;
-    if (isTrial) return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Trial</Badge>;
+    if (isActive)  return <Badge className="bg-green-100 text-green-700 border-green-200">Ativo</Badge>;
+    if (isTrial)   return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Trial</Badge>;
     return <Badge variant="outline">Inativo</Badge>;
   };
 
-  const handleSubscribe = () => {
-    alert("Redirecionar para checkout (em desenvolvimento)");
+  // ── Checkout Abacatepay ──────────────────────────────────────────────────
+  const handleSubscribe = async (planId: string) => {
+    if (!user) { toast.error("Faça login para assinar"); return; }
+
+    setSubscribing(planId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sessão inválida. Faça login novamente.");
+
+      const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          user_id:    user.id,
+          plano_id:   `crm-r2-${planId}`,
+          user_email: user.email,
+          user_name:  profile?.full_name,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Erro ao criar checkout");
+      if (!result.checkout_url) throw new Error("URL de checkout não retornada");
+
+      window.location.href = result.checkout_url;
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao criar assinatura");
+      setSubscribing(null);
+    }
   };
 
   return (
@@ -213,17 +231,15 @@ const Subscription = () => {
             <p className="text-muted-foreground text-sm">Gerencie seu plano e pagamentos</p>
           </div>
           <Button variant="destructive" size="sm" onClick={signOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            Sair
+            <LogOut className="w-4 h-4" /> Sair
           </Button>
         </div>
 
-        {/* Card de status */}
+        {/* Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
-              Status da assinatura
+              <CreditCard className="w-5 h-5" /> Status da assinatura
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -235,16 +251,13 @@ const Subscription = () => {
               <div>{getStatusBadge()}</div>
             </div>
 
-            {/* Trial ativo */}
             {isTrial && trialEnd && (
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <div className="flex items-center gap-2 text-blue-700 mb-2">
                   <Clock className="w-4 h-4" />
                   <span className="font-semibold">⏳ Período de teste</span>
                 </div>
-                <p className="text-sm text-blue-600">
-                  Seu acesso expira em: <strong>{timeLeft}</strong>
-                </p>
+                <p className="text-sm text-blue-600">Seu acesso expira em: <strong>{timeLeft}</strong></p>
                 <p className="text-xs text-blue-500 mt-1">
                   até {format(trialEnd, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </p>
@@ -252,7 +265,6 @@ const Subscription = () => {
               </div>
             )}
 
-            {/* Expirado */}
             {isExpired && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -265,7 +277,6 @@ const Subscription = () => {
               </Alert>
             )}
 
-            {/* Ativo */}
             {isActive && (
               <div className="p-4 bg-green-50 rounded-lg border border-green-100">
                 <div className="flex items-center gap-2 text-green-700">
@@ -285,8 +296,7 @@ const Subscription = () => {
           <CardHeader>
             <CardTitle>Detalhes do plano {currentPlan.name}</CardTitle>
             <CardDescription>
-              R$ {currentPlan.price}/mês •{" "}
-              {currentPlan.users === 1 ? "1 usuário" : `${currentPlan.users} usuários`}
+              R$ {currentPlan.price}/mês • {currentPlan.users === 1 ? "1 usuário" : `${currentPlan.users} usuários`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -309,20 +319,52 @@ const Subscription = () => {
 
             {(isExpired || isTrial) && (
               <Button
-                onClick={handleSubscribe}
+                onClick={() => handleSubscribe(planKey)}
+                disabled={!!subscribing}
                 className="mt-6 w-full bg-[#7E22CE] hover:bg-[#6b21a8]"
               >
-                {isExpired ? "Assinar agora" : "Assinar após o trial"}
+                {subscribing === planKey ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Redirecionando...</>
+                ) : (
+                  isExpired ? "Assinar agora" : "Gostou? Assine agora!"
+                )}
               </Button>
             )}
           </CardContent>
         </Card>
 
-        {/* Histórico */}
+        {/* Outros planos */}
         <Card>
           <CardHeader>
-            <CardTitle>Histórico de pagamentos</CardTitle>
+            <CardTitle>Outros planos</CardTitle>
+            <CardDescription>Quer mais recursos? Conheça os outros planos.</CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(plans).filter(([key]) => key !== planKey).map(([key, plan]) => (
+                <div key={key} className="p-4 border rounded-xl space-y-2">
+                  <h3 className="font-bold text-lg">{plan.name}</h3>
+                  <p className="text-2xl font-bold text-[#7E22CE]">
+                    R$ {plan.price}<span className="text-sm font-normal text-muted-foreground">/mês</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {plan.users === 1 ? "1 usuário" : `${plan.users} usuários`} • {plan.leads} leads
+                  </p>
+                  <Button variant="outline" className="w-full mt-2"
+                    onClick={() => handleSubscribe(key)} disabled={!!subscribing}>
+                    {subscribing === key
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : "Assinar"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Histórico */}
+        <Card>
+          <CardHeader><CardTitle>Histórico de pagamentos</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground text-center py-4">
               Nenhum pagamento registrado ainda.

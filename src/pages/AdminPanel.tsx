@@ -53,10 +53,11 @@ const useAllProfiles = () => {
   const query = useQuery({
     queryKey: ["admin_profiles"],
     queryFn: async () => {
+      // Removido o campo "email" pois não existe na tabela profiles
       const { data, error } = await supabase
         .from("profiles")
         .select(`
-          id, full_name, email, role, status, plan, subscription_status,
+          id, full_name, role, status, plan, subscription_status,
           trial_end, trial_start, company_id, created_at, phone,
           cpf, creci, updated_at,
           companies:company_id (name)
@@ -126,10 +127,7 @@ const ExpandedRow = ({ p, leadCount }: { p: any; leadCount: number }) => (
   <tr className="bg-muted/20">
     <td colSpan={8} className="px-4 py-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div>
-          <p className="text-muted-foreground mb-0.5">E-mail</p>
-          <p className="font-medium">{p.email || "—"}</p>
-        </div>
+        {/* E-mail removido pois não existe na tabela profiles */}
         <div>
           <p className="text-muted-foreground mb-0.5">Telefone</p>
           <p className="font-medium">{p.phone || "—"}</p>
@@ -262,9 +260,9 @@ const AdminPanel = () => {
 
   const handleExportCSV = () => {
     if (!allProfiles) return;
-    const headers = ["Nome", "E-mail", "Telefone", "CRECI", "Role", "Empresa", "Plano", "Assinatura", "Status", "Cadastro", "Atualização"];
+    const headers = ["Nome", "Telefone", "CRECI", "Role", "Empresa", "Plano", "Assinatura", "Status", "Cadastro", "Atualização"];
     const rows = allProfiles.map(p => [
-      p.full_name ?? "", p.email ?? "", p.phone ?? "", p.creci ?? "",
+      p.full_name ?? "", p.phone ?? "", p.creci ?? "",
       roleLabels[p.role ?? ""] ?? p.role ?? "",
       p.companies?.name ?? "",
       PLAN_LABELS[p.plan ?? ""] ?? p.plan ?? "",
@@ -450,7 +448,7 @@ const AdminPanel = () => {
                       {["Nome", "Tipo", "Plano", "Assinatura", "Trial", "Leads", "Status", "Ações"].map(h => (
                         <th key={h} className="text-left p-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>
                       ))}
-                    </tr>
+                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filtered.map(p => {
@@ -473,30 +471,30 @@ const AdminPanel = () => {
                                   {p.companies?.name && <p className="text-[10px] text-muted-foreground">{p.companies.name}</p>}
                                 </div>
                               </div>
-                            </td>
-                            <td className="p-3 text-xs text-muted-foreground">{roleLabels[p.role ?? ""] ?? p.role}</td>
+                             </td>
+                            <td className="p-3 text-xs text-muted-foreground">{roleLabels[p.role ?? ""] ?? p.role} </td>
                             <td className="p-3">
                               <span className="text-xs font-medium">{PLAN_LABELS[p.plan ?? ""] ?? p.plan ?? "—"}</span>
                               {p.plan && <p className="text-[10px] text-muted-foreground">R$ {PLAN_PRICES[p.plan]}/mês</p>}
-                            </td>
+                             </td>
                             <td className="p-3">
                               <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase", planColors[p.subscription_status ?? ""] ?? "bg-slate-100 text-slate-600")}>
                                 {p.subscription_status ?? "—"}
                               </span>
-                            </td>
+                             </td>
                             <td className="p-3 text-xs">
                               {trialDays !== null
                                 ? trialDays >= 0
                                   ? <span className="text-amber-600 font-medium">{trialDays}d restantes</span>
                                   : <span className="text-red-500">Expirado</span>
                                 : "—"}
-                            </td>
+                             </td>
                             <td className="p-3 text-sm font-semibold text-center">{leadCount}</td>
                             <td className="p-3">
                               <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", isAtivo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600")}>
                                 {isAtivo ? "Ativo" : "Bloqueado"}
                               </span>
-                            </td>
+                             </td>
                             <td className="p-3" onClick={e => e.stopPropagation()}>
                               <div className="flex items-center gap-1">
                                 <button onClick={() => openEditPlan(p)} title="Editar plano"
@@ -510,8 +508,8 @@ const AdminPanel = () => {
                                     : isAtivo ? <ToggleRight className="w-5 h-5 text-green-500" /> : <ToggleLeft className="w-5 h-5 text-slate-400" />}
                                 </button>
                               </div>
-                            </td>
-                          </tr>
+                             </td>
+                           </tr>
                           {isExpanded && <ExpandedRow p={p} leadCount={leadCount} />}
                         </>
                       );

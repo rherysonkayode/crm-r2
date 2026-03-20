@@ -388,7 +388,13 @@ const Settings = () => {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{profile?.full_name || "-"}</p>
                       <p className="text-sm text-muted-foreground">{profile?.role ? roleLabels[profile.role] : "-"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{profile?.company_id ? "Vinculado a uma imobiliaria" : "Corretor independente"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {profile?.role === "imobiliaria"
+                          ? "Imobiliária"
+                          : profile?.company_id
+                            ? "Vinculado a uma imobiliária"
+                            : "Corretor independente"}
+                      </p>
                       {avatarUrl && <button onClick={handleDeleteAvatar} disabled={uploadingAvatar} className="text-xs text-red-400 hover:text-red-600 mt-1">Remover foto</button>}
                     </div>
                   </div>

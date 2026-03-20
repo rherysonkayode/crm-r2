@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import logoR2 from "/logo-r2.svg";
 import {
   LayoutDashboard, Users, Building2, GitBranch, LogOut,
   ChevronLeft, ChevronRight, UserPlus, Settings,
@@ -63,7 +64,7 @@ export const AppSidebar = ({ onClose }: AppSidebarProps) => {
       <div className="flex items-center justify-between gap-4 px-5 py-6 border-b border-slate-800/60">
         <div className="flex items-center gap-2 shrink-0">
           <img
-            src="/logo-r2.svg"
+            src={logoR2}
             alt="R2 Tech"
             className={cn(
               "h-auto rounded-xl shadow-lg shadow-black/20 transition-all duration-300",

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,10 +51,31 @@ const plans = {
   },
 };
 
+const PLAN_LABELS: Record<string, string> = {
+  "crm-r2-start": "Start", "crm-r2-pro": "Pro",
+  "crm-r2-profissional": "Profissional", "crm-r2-enterprise": "Enterprise",
+};
+
 const Subscription = () => {
   const { profile, signOut, companyProfile, isCorretorVinculado, user } = useAuth();
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [subscribing, setSubscribing] = useState<string | null>(null);
+
+  // Histórico de pagamentos
+  const { data: historico } = useQuery({
+    queryKey: ["assinaturas", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("assinaturas" as any)
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return data ?? [];
+    },
+    enabled: !!user?.id,
+  });
 
   // Timer de contagem regressiva
   useEffect(() => {
@@ -366,9 +388,51 @@ const Subscription = () => {
         <Card>
           <CardHeader><CardTitle>Histórico de pagamentos</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum pagamento registrado ainda.
-            </p>
+            {!historico || historico.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum pagamento registrado ainda.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {historico.map((item: any) => {
+                  const planName = item.plano_id?.replace("crm-r2-", "") || "—";
+                  const planLabels: Record<string, string> = {
+                    start: "Start", pro: "Pro", profissional: "Profissional", enterprise: "Enterprise"
+                  };
+                  const planPrices: Record<string, number> = {
+                    start: 97, pro: 147, profissional: 197, enterprise: 347
+                  };
+                  const isActive = item.status === "active";
+                  return (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-green-100" : "bg-slate-100"}`}>
+                          <CreditCard className={`w-4 h-4 ${isActive ? "text-green-600" : "text-slate-400"}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">Plano {planLabels[planName] ?? planName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.created_at ? new Date(item.created_at).toLocaleDateString("pt-BR") : "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-[#7E22CE]">
+                          R$ {planPrices[planName] ?? "—"}/mês
+                        </p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isActive ? "bg-green-100 text-green-700" :
+                          item.status === "pending" ? "bg-amber-100 text-amber-700" :
+                          "bg-red-100 text-red-600"
+                        }`}>
+                          {isActive ? "Ativo" : item.status === "pending" ? "Pendente" : "Cancelado"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 

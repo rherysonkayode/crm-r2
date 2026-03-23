@@ -89,6 +89,11 @@ const Leads = () => {
   const [newColName, setNewColName]       = useState("");
   const [newColColor, setNewColColor]     = useState("#7E22CE");
   const [viewingLead, setViewingLead]     = useState<any>(null);
+  
+  // NOVOS ESTADOS PARA MOVER LEAD ENTRE COLUNAS
+  const [movingLead, setMovingLead] = useState<any>(null);
+  const [moveToColumnDialogOpen, setMoveToColumnDialogOpen] = useState(false);
+  const [selectedColumnId, setSelectedColumnId] = useState<string>("");
 
   // Drag state — suporta mouse (HTML5) e touch
   const draggedLeadId   = useRef<string | null>(null);
@@ -107,6 +112,27 @@ const Leads = () => {
     setEditingLead(null);
   };
 
+  // NOVA FUNÇÃO PARA MOVER LEAD PARA COLUNA
+  const handleMoveToColumn = async () => {
+    if (!movingLead || !selectedColumnId) return;
+    
+    const { error } = await supabase
+      .from("leads")
+      .update({ kanban_column_id: selectedColumnId === "null" ? null : selectedColumnId })
+      .eq("id", movingLead.id);
+      
+    if (error) {
+      toast.error("Erro ao mover lead");
+    } else {
+      toast.success("Lead movido com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    }
+    
+    setMovingLead(null);
+    setMoveToColumnDialogOpen(false);
+    setSelectedColumnId("");
+  };
+
   const handleSave = async () => {
     if (!profile || !form.name.trim()) { toast.error("Informe o nome do lead"); return; }
     if (form.email && !isValidEmail(form.email)) { toast.error("Insira um e-mail valido"); return; }
@@ -118,9 +144,7 @@ const Leads = () => {
       source:      form.source || null,
       notes:       form.notes  || null,
       status:      form.status,
-      // Corretor sempre fica atribuído a si mesmo; imobiliária pode atribuir a outro
       assigned_to: isCorretor ? profile.id : (form.assigned_to || null),
-      // company_id garante que a imobiliária enxergue o lead
       company_id:  profile.company_id ?? null,
     };
 
@@ -158,7 +182,6 @@ const Leads = () => {
   };
 
   // ── Drag & Drop: HTML5 (desktop) ──────────────────────────────────────────
-  // Mover status do lead via seta
   const handleMoveStatus = async (lead: any, direction: "next" | "prev") => {
     const order = ["novo", "contato", "qualificado", "proposta", "convertido", "perdido"];
     const idx = order.indexOf(lead.status);
@@ -202,7 +225,6 @@ const Leads = () => {
     if (!touchStartPos.current) return;
     const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
     const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
-    // Só considera arraste se moveu mais de 8px
     if (dx > 8 || dy > 8) {
       isTouchDragging.current = true;
       const colId = getColumnFromPoint(e.touches[0].clientX, e.touches[0].clientY);
@@ -211,7 +233,6 @@ const Leads = () => {
   };
 
   const handleTouchEnd = async (e: React.TouchEvent) => {
-    // Só move se foi realmente um arraste, não um clique
     if (isTouchDragging.current && draggedLeadId.current) {
       const t = e.changedTouches[0];
       const colId = getColumnFromPoint(t.clientX, t.clientY);
@@ -251,7 +272,6 @@ const Leads = () => {
   const filtered = leads?.filter((l) => {
     const matchSearch   = l.name.toLowerCase().includes(search.toLowerCase());
     const matchStatus   = filterStatus === "all" || l.status === filterStatus;
-    // Corretor já recebe só os seus via query; filtro de corretor só vale para imobiliária
     const matchCorretor = isCorretor
       ? true
       : filterCorretor === "all" || l.assigned_to === filterCorretor;
@@ -301,7 +321,6 @@ const Leads = () => {
           {lead.email && <p className="text-xs text-slate-400 truncate">{lead.email}</p>}
           {lead.phone && <p className="text-xs text-slate-400">{lead.phone}</p>}
           
-          {/* AQUI ESTÁ A CORREÇÃO: Mostra o nome do imóvel direto no Card se ele veio pelo link */}
           {lead.notes && (lead.notes.includes("link do imóvel") || lead.notes.includes("via link")) && (
             <div className="flex items-start gap-1.5 mt-2 bg-purple-50/80 p-1.5 rounded-md border border-purple-100">
               <Building2 className="w-3 h-3 text-[#7E22CE] shrink-0 mt-0.5" />
@@ -320,10 +339,15 @@ const Leads = () => {
             {isImobiliaria && responsavel && (
               <span className="text-[10px] text-slate-400 truncate max-w-[60px]">{responsavel.full_name}</span>
             )}
+            {/* BOTÃO CORRIGIDO: Agora abre modal de seleção de coluna, não move status */}
             <button
-              onClick={(e) => { e.stopPropagation(); handleMoveStatus(lead, "next"); }}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setMovingLead(lead); 
+                setMoveToColumnDialogOpen(true); 
+              }}
               className="p-0.5 rounded hover:bg-purple-50 transition-colors"
-              title="Avançar status"
+              title="Mover para outra coluna"
             >
               <ArrowRight className="w-3 h-3 text-[#7E22CE]" />
             </button>
@@ -346,7 +370,6 @@ const Leads = () => {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {/* Toggle lista / kanban */}
             <div className="flex bg-muted rounded-lg p-0.5">
               <button
                 onClick={() => setView("list")}
@@ -364,7 +387,6 @@ const Leads = () => {
               </button>
             </div>
 
-            {/* Gerenciar colunas */}
             {view === "kanban" && (
               <Dialog open={colDialogOpen} onOpenChange={setColDialogOpen}>
                 <DialogTrigger asChild>
@@ -410,7 +432,6 @@ const Leads = () => {
               </Dialog>
             )}
 
-            {/* Novo Lead */}
             <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]"><Plus className="w-4 h-4 mr-2" />Novo Lead</Button>
@@ -454,7 +475,6 @@ const Leads = () => {
                       </Select>
                     </div>
                   </div>
-                  {/* Atribuir a corretor — só imobiliária vê */}
                   {isImobiliaria && profiles && profiles.length > 0 && (
                     <div className="space-y-2">
                       <Label>Atribuir a</Label>
@@ -580,7 +600,6 @@ const Leads = () => {
                         )}
                         <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end items-center gap-1">
-                            {/* Seta de mudança rápida de status */}
                             <select
                               value={lead.status}
                               onChange={async (e) => {
@@ -748,7 +767,6 @@ const Leads = () => {
                 </div>
                 {viewingLead.notes && (
                   <div className="space-y-1.5">
-                    {/* Destaca se veio de um imóvel compartilhado */}
                     {viewingLead.notes.includes("link do imóvel") || viewingLead.notes.includes("via link") ? (
                       <>
                         <p className="text-xs font-semibold text-slate-500 uppercase">Origem</p>
@@ -787,6 +805,39 @@ const Leads = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* NOVO MODAL: Mover Lead para Coluna */}
+        <Dialog open={moveToColumnDialogOpen} onOpenChange={setMoveToColumnDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Mover para coluna</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Selecione a coluna de destino</Label>
+                <Select value={selectedColumnId} onValueChange={setSelectedColumnId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha uma coluna" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="null">Sem coluna</SelectItem>
+                    {kanbanColumns?.map(col => (
+                      <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setMoveToColumnDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 bg-[#7E22CE]" onClick={handleMoveToColumn} disabled={!selectedColumnId}>
+                  Mover
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

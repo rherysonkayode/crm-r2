@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useState, useRef } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useDeals, useLeads, useProperties } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,6 +59,11 @@ const Funnel = () => {
   const [pendingDrop, setPendingDrop] = useState<{ dealId: string; newStage: string } | null>(null);
   const [deleteDealId, setDeleteDealId] = useState<string | null>(null);
   const [viewingDeal, setViewingDeal] = useState<any | null>(null);
+  
+  // NOVOS ESTADOS PARA DRAG & DROP NO MOBILE
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isTouchDragging = useRef(false);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "", lead_id: "", property_id: "", value: "", stage: "novo",
@@ -137,7 +142,6 @@ const Funnel = () => {
     const result = await response.json();
     if (!result.success) { toast.error("Erro ao mover negocio: " + result.error); return; }
 
-    // Atualiza o lead vinculado automaticamente
     const deal = deals?.find(d => d.id === dealId);
     if (deal?.lead_id) {
       if (newStage === "fechado") {
@@ -154,6 +158,7 @@ const Funnel = () => {
     setPendingDrop(null);
     setMovingDeal(null);
     setMoveStage("");
+    setDragOverStage(null);
   };
 
   const handleMoveDeal = async (dealId: string, newStage: string) => {
@@ -164,6 +169,44 @@ const Funnel = () => {
     } else {
       await performMove(dealId, newStage);
     }
+  };
+
+  // ── Drag & Drop: Touch (mobile) para Funnel ───────────────────────────────
+  const handleTouchStart = (dealId: string, e: React.TouchEvent) => {
+    setDraggedDeal(dealId);
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    isTouchDragging.current = false;
+  };
+
+  const getStageFromPoint = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y);
+    const stageEl = el?.closest("[data-stage]") as HTMLElement | null;
+    return stageEl?.dataset.stage ?? null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
+    if (dx > 8 || dy > 8) {
+      isTouchDragging.current = true;
+      const stageId = getStageFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+      setDragOverStage(stageId);
+    }
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent) => {
+    if (isTouchDragging.current && draggedDeal) {
+      const t = e.changedTouches[0];
+      const stageId = getStageFromPoint(t.clientX, t.clientY);
+      if (stageId !== null) {
+        await handleDrop(stageId);
+      }
+    }
+    setDraggedDeal(null);
+    touchStartPos.current = null;
+    isTouchDragging.current = false;
+    setDragOverStage(null);
   };
 
   const formatCurrency = (val: number | null) =>
@@ -263,16 +306,18 @@ const Funnel = () => {
           </div>
         </div>
 
-        {/* Colunas do Kanban */}
+        {/* Colunas do Kanban - CORRIGIDO PARA SUPORTAR TOUCH */}
         <div className="flex gap-4 overflow-x-auto pb-4">
           {stages.map((stage) => {
             const stageDeals = deals?.filter((d) => d.stage === stage.value) || [];
             const total = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+            const isOver = dragOverStage === stage.value;
 
             return (
               <div
                 key={stage.value}
-                className={`flex-shrink-0 w-64 bg-muted/50 rounded-xl border-t-2 ${stage.color}`}
+                data-stage={stage.value}
+                className={`flex-shrink-0 w-64 bg-muted/50 rounded-xl border-t-2 ${stage.color} transition-colors ${isOver ? "bg-purple-100 border-purple-400" : ""}`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handleDrop(stage.value)}
               >
@@ -293,11 +338,15 @@ const Funnel = () => {
                         draggable
                         onDragStart={(e) => { setDraggedDeal(deal.id); e.dataTransfer.setData("text/plain", deal.id); }}
                         onDragEnd={() => setDraggedDeal(null)}
-                        className="bg-card rounded-lg border border-border p-3 cursor-pointer hover:shadow-md transition-shadow group"
+                        onTouchStart={(e) => handleTouchStart(deal.id, e)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        className="bg-card rounded-lg border border-border p-3 cursor-pointer hover:shadow-md transition-shadow group touch-none select-none"
                         onClick={() => !isMoving && setViewingDeal(deal)}
+                        style={{ WebkitUserSelect: "none", userSelect: "none" }}
                       >
                         <div className="flex items-start gap-2">
-                          <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0 cursor-grab" onClick={(e) => e.stopPropagation()} />
+                          <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0 cursor-grab active:cursor-grabbing" onClick={(e) => e.stopPropagation()} />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-card-foreground truncate">{getDealLabel(deal)}</p>
                             {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}

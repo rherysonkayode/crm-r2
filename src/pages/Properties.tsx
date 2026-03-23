@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Pencil, MapPin, BedDouble, Maximize,
-  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye,
+  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye, Phone,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -52,6 +52,26 @@ interface VendaInfo {
   corretor: { full_name: string } | null;
 }
 
+const usePropertyLeadsCount = (userId: string | null | undefined) => {
+  return useQuery({
+    queryKey: ["property_leads_count", userId],
+    queryFn: async () => {
+      if (!userId) return {};
+      const { data } = await (supabase
+        .from("leads")
+        .select("property_id")
+        .not("property_id", "is", null) as any);
+      if (!data) return {};
+      const counts: Record<string, number> = {};
+      (data as any[]).forEach((l: any) => {
+        if (l.property_id) counts[l.property_id] = (counts[l.property_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!userId,
+  });
+};
+
 const usePropertyViews = (userId: string | null | undefined, companyId: string | null | undefined) => {
   return useQuery({
     queryKey: ["property_views", userId, companyId],
@@ -79,6 +99,28 @@ const usePropertyViews = (userId: string | null | undefined, companyId: string |
   });
 };
 
+const useLeadContactCounts = (propertyIds: string[]) => {
+  return useQuery({
+    queryKey: ["lead_contacts", propertyIds],
+    queryFn: async () => {
+      if (!propertyIds.length) return {};
+      const { data } = await supabase
+        .from("leads")
+        .select("notes")
+        .or(propertyIds.map(id => `notes.ilike.%${id}%`).join(","));
+      // Contar por property_id nas notes
+      const counts: Record<string, number> = {};
+      (data ?? []).forEach((l: any) => {
+        propertyIds.forEach(id => {
+          if (l.notes?.includes(id)) counts[id] = (counts[id] || 0) + 1;
+        });
+      });
+      return counts;
+    },
+    enabled: propertyIds.length > 0,
+  });
+};
+
 const Properties = () => {
   const { data: properties, isLoading } = useProperties();
   const { data: allImages, refetch: refetchImages } = useAllPropertyImages();
@@ -87,9 +129,12 @@ const Properties = () => {
   const { profile, isCorretor, isImobiliaria } = useAuth();
   const { canCreateProperties } = usePermissions();
   const { data: viewCounts = {} } = usePropertyViews(profile?.id, profile?.company_id);
+  const { data: leadsCount = {} } = usePropertyLeadsCount(profile?.id);
+  const propertyIds = (properties ?? []).map((p: any) => p.id);
+  const { data: contactCounts = {} } = useLeadContactCounts(propertyIds);
   const queryClient = useQueryClient();
 
-  const [search,       setSearch]       = useState("");
+  const [search,        setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType,   setFilterType]   = useState("all");
   const [showFilters,  setShowFilters]  = useState(false);
@@ -109,16 +154,38 @@ const Properties = () => {
     data: new Date().toISOString().split("T")[0],
   });
 
-  const [form, setForm] = useState({
-    title: "", price: "", neighborhood: "", city: "",
-    type: "apartamento", status: "disponivel",
-    bedrooms: "", area: "", description: "",
+  const FORM_STORAGE_KEY = "crm_r2_property_form_draft";
+
+  const [form, setFormState] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(FORM_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { title: "", price: "", neighborhood: "", city: "", type: "apartamento", status: "disponivel", bedrooms: "", area: "", description: "" };
   });
 
+  const setForm = (newForm: typeof form | ((prev: typeof form) => typeof form)) => {
+    setFormState(prev => {
+      const next = typeof newForm === "function" ? newForm(prev) : newForm;
+      // Só persiste quando está criando (não editando)
+      if (!editing) {
+        try { sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+  };
+
   const resetForm = () => {
-    setForm({ title: "", price: "", neighborhood: "", city: "", type: "apartamento", status: "disponivel", bedrooms: "", area: "", description: "" });
+    const empty = { title: "", price: "", neighborhood: "", city: "", type: "apartamento", status: "disponivel", bedrooms: "", area: "", description: "" };
+    setFormState(empty);
+    try { sessionStorage.removeItem(FORM_STORAGE_KEY); } catch {}
     setEditing(null);
     setTempImages([]);
+  };
+
+  const openNewDialog = () => {
+      setEditing(null);
+      setDialogOpen(true);
   };
 
   const openEdit = (prop: any) => {
@@ -303,7 +370,7 @@ const Properties = () => {
           {canCreateProperties && (
             <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
-                <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]">
+                <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]" onClick={openNewDialog}>
                   <Plus className="w-4 h-4 mr-2" />Novo Imóvel
                 </Button>
               </DialogTrigger>
@@ -371,7 +438,7 @@ const Properties = () => {
                   <div className="space-y-2">
                     <Label>Descrição</Label>
                     <textarea
-                      className="w-full min-h-[100px] p-2 border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="w-full min-h-[100px] p-2 border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground placeholder:text-muted-foreground"
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
                       placeholder="Detalhes do imóvel..."
@@ -537,12 +604,26 @@ const Properties = () => {
                     <div className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColors[prop.status] || "bg-slate-100 text-slate-600"}`}>
                       {statusOptions.find((s) => s.value === prop.status)?.label || prop.status}
                     </div>
-                    {(viewCounts as any)[prop.id] > 0 && (
-                      <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        <Eye className="w-2.5 h-2.5" />
-                        {(viewCounts as any)[prop.id]}
-                      </div>
-                    )}
+                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                      {/* Visualizações do Imóvel */}
+                      {(viewCounts as any)[prop.id] > 0 && (
+                        <div className="flex items-center gap-1 bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <Eye className="w-2.5 h-2.5" />
+                          {(viewCounts as any)[prop.id]}
+                        </div>
+                      )}
+                      
+                      {/* CORREÇÃO: Contador de Leads interessados (Quero ser contactado) */}
+                      {(leadsCount as any)[prop.id] > 0 && (
+                        <div 
+                          className="flex items-center gap-1 bg-[#7E22CE]/90 shadow-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full" 
+                          title={`${(leadsCount as any)[prop.id]} pessoa(s) entraram em contato por este imóvel`}
+                        >
+                          <Phone className="w-2.5 h-2.5" />
+                          {(leadsCount as any)[prop.id]}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Info */}
@@ -645,7 +726,7 @@ const Properties = () => {
                 {viewing.description && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Descrição</p>
-                    <p className="text-sm whitespace-pre-wrap bg-slate-50 rounded-lg p-3 border border-slate-100">{viewing.description}</p>
+                    <p className="text-sm whitespace-pre-wrap bg-muted rounded-lg p-3 border border-border text-foreground">{viewing.description}</p>
                   </div>
                 )}
 

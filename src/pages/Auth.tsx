@@ -308,7 +308,7 @@ const Auth = () => {
             Voltar ao início
           </Link>
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+            className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100" style={{ colorScheme: "light" }}>
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-slate-900">{isLogin ? "Entrar" : "Criar Conta"}</h2>
               {!isLogin && <p className="text-slate-500 mt-2">Etapa {step} de {totalSteps}</p>}
@@ -355,7 +355,7 @@ const Auth = () => {
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input type="email" value={email} onChange={e => { setEmail(e.target.value); setEmailExists(false); }}
-                              className={cn("pl-10 py-6 rounded-2xl", emailExists && "border-red-500")} placeholder="seu@email.com" required />
+                              className={cn("pl-10 py-6 rounded-2xl bg-white text-slate-900", emailExists && "border-red-500")} placeholder="seu@email.com" required />
                           </div>
                           {emailExists && <p className="text-xs text-red-500">Este e-mail já está cadastrado.</p>}
                         </div>
@@ -363,7 +363,7 @@ const Auth = () => {
                           <Label>Senha</Label>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className="pl-10 pr-10 py-6 rounded-2xl" placeholder="Crie uma senha" required />
+                            <Input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className="pl-10 pr-10 py-6 rounded-2xl bg-white text-slate-900" placeholder="Crie uma senha" required />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
@@ -391,7 +391,7 @@ const Auth = () => {
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                              className={cn("pl-10 pr-10 py-6 rounded-2xl", confirmPassword && password !== confirmPassword ? "border-red-500" : "")} placeholder="Repita a senha" required />
+                              className={cn("pl-10 pr-10 py-6 rounded-2xl bg-white text-slate-900", confirmPassword && password !== confirmPassword ? "border-red-500" : "")} placeholder="Repita a senha" required />
                             <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
@@ -441,7 +441,7 @@ const Auth = () => {
                         <div className="space-y-1.5">
                           <Label>Nome completo *</Label>
                           <Input value={fullName} onChange={e => { setFullName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s]/g, "")); clearFieldError("fullName"); }}
-                            className={cn("py-6 rounded-2xl", fieldErrors.fullName && "border-red-400")} placeholder="Ex: João da Silva" required />
+                            className={cn("py-6 rounded-2xl bg-white text-slate-900 placeholder:text-slate-400", fieldErrors.fullName && "border-red-400")} placeholder="Ex: João da Silva" required />
                           <FieldError field="fullName" />
                         </div>
 
@@ -451,7 +451,7 @@ const Auth = () => {
                           <div className="relative">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input value={phone} onChange={e => { setPhone(formatPhone(e.target.value)); clearFieldError("phone"); }}
-                              className={cn("pl-10 py-6 rounded-2xl", fieldErrors.phone && "border-red-400")} placeholder="(00) 00000-0000" inputMode="numeric" required />
+                              className={cn("pl-10 py-6 rounded-2xl bg-white text-slate-900 placeholder:text-slate-400", fieldErrors.phone && "border-red-400")} placeholder="(00) 00000-0000" inputMode="numeric" required />
                           </div>
                           <FieldError field="phone" />
                         </div>
@@ -464,7 +464,7 @@ const Auth = () => {
                               <div className="relative">
                                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input value={cpf} onChange={e => { setCpf(formatCPF(e.target.value)); clearFieldError("cpf"); }}
-                                  className={cn("pl-10 py-6 rounded-2xl", fieldErrors.cpf && "border-red-400")} placeholder="000.000.000-00" inputMode="numeric" required />
+                                  className={cn("pl-10 py-6 rounded-2xl bg-white text-slate-900 placeholder:text-slate-400", fieldErrors.cpf && "border-red-400")} placeholder="000.000.000-00" inputMode="numeric" required />
                               </div>
                               {cpf && !fieldErrors.cpf && (
                                 <p className={cn("text-xs", isValidCPF(cpf) ? "text-green-600" : "text-red-500")}>
@@ -478,7 +478,7 @@ const Auth = () => {
                               <div className="relative">
                                 <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input value={creci} onChange={e => { setCreci(e.target.value.toUpperCase()); clearFieldError("creci"); }}
-                                  className={cn("pl-10 py-6 rounded-2xl", fieldErrors.creci && "border-red-400")} placeholder="CRECI-RJ 12345" required />
+                                  className={cn("pl-10 py-6 rounded-2xl bg-white text-slate-900 placeholder:text-slate-400", fieldErrors.creci && "border-red-400")} placeholder="CRECI-RJ 12345" required />
                               </div>
                               <FieldError field="creci" />
                             </div>
@@ -491,7 +491,7 @@ const Auth = () => {
                             <div className="space-y-1.5">
                               <Label>Nome da Imobiliária *</Label>
                               <Input value={companyName} onChange={e => { setCompanyName(e.target.value); clearFieldError("companyName"); }}
-                                className={cn("py-6 rounded-2xl", fieldErrors.companyName && "border-red-400")} placeholder="Ex: Imobiliária R2" required />
+                                className={cn("py-6 rounded-2xl bg-white text-slate-900 placeholder:text-slate-400", fieldErrors.companyName && "border-red-400")} placeholder="Ex: Imobiliária R2" required />
                               <FieldError field="companyName" />
                             </div>
                             <div className="space-y-2">
@@ -499,7 +499,7 @@ const Auth = () => {
                               <div className="relative">
                                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input value={docValue} onChange={e => { setDocValue(formatCNPJ(e.target.value)); clearFieldError("docValue"); }}
-                                  className={cn("pl-10 py-6 rounded-2xl", fieldErrors.docValue && "border-red-400")}
+                                  className={cn("pl-10 py-6 rounded-2xl bg-white text-slate-900 placeholder:text-slate-400", fieldErrors.docValue && "border-red-400")}
                                   placeholder="00.000.000/0000-00" inputMode="numeric" required />
                               </div>
                               {docValue && !fieldErrors.docValue && (

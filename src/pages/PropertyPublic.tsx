@@ -98,11 +98,15 @@ const PropertyPublic = () => {
         name:        form.name,
         phone:       form.phone,
         email:       form.email || null,
-        notes:       form.message ? `Mensagem via link do imóvel: ${form.message}` : `Lead captado via link do imóvel: ${property.title}`,
+        // CORREÇÃO: Sempre carimba o nome do imóvel, com ou sem mensagem adicional!
+        notes:       form.message 
+                       ? `Interesse via link do imóvel: ${property.title}\n\nMensagem do cliente: ${form.message}` 
+                       : `Interesse via link do imóvel: ${property.title}`,
         source:      "Portal",
         status:      "novo",
         assigned_to: property.created_by ?? null,
         company_id:  property.company_id ?? null,
+        property_id: property.id ?? null,
       } as any);
 
       if (error) throw error;

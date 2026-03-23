@@ -13,7 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Search, Trash2, Pencil, Users, User, LayoutList, Columns, GripVertical, Settings2, X, ArrowRight, Phone, Mail, FileText } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, Users, User, LayoutList, Columns, GripVertical, Settings2, X, ArrowRight, Phone, Mail, FileText, ChevronDown, Home, Building2} from "lucide-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -158,6 +158,18 @@ const Leads = () => {
   };
 
   // ── Drag & Drop: HTML5 (desktop) ──────────────────────────────────────────
+  // Mover status do lead via seta
+  const handleMoveStatus = async (lead: any, direction: "next" | "prev") => {
+    const order = ["novo", "contato", "qualificado", "proposta", "convertido", "perdido"];
+    const idx = order.indexOf(lead.status);
+    const newIdx = direction === "next" ? idx + 1 : idx - 1;
+    if (newIdx < 0 || newIdx >= order.length) return;
+    const newStatus = order[newIdx];
+    const { error } = await supabase.from("leads").update({ status: newStatus }).eq("id", lead.id);
+    if (error) { toast.error("Erro ao mover lead"); return; }
+    queryClient.invalidateQueries({ queryKey: ["leads"] });
+  };
+
   const handleDragStart = (leadId: string) => { draggedLeadId.current = leadId; };
   const handleDragEnd   = () => { draggedLeadId.current = null; setDragOverCol(null); };
 
@@ -262,7 +274,8 @@ const Leads = () => {
         onTouchStart={(e) => handleTouchStart(lead.id, e)}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="bg-white rounded-xl border border-slate-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all select-none touch-none"
+        className="bg-white rounded-xl border border-slate-100 p-3 cursor-grab active:cursor-grabbing active:opacity-60 active:scale-95 active:shadow-lg hover:shadow-md transition-all select-none touch-none"
+        style={{ WebkitUserSelect: "none", userSelect: "none" }}
       >
         <div className="flex items-start justify-between gap-2">
           <div
@@ -287,15 +300,34 @@ const Leads = () => {
         <div className="mt-2 space-y-0.5">
           {lead.email && <p className="text-xs text-slate-400 truncate">{lead.email}</p>}
           {lead.phone && <p className="text-xs text-slate-400">{lead.phone}</p>}
+          
+          {/* AQUI ESTÁ A CORREÇÃO: Mostra o nome do imóvel direto no Card se ele veio pelo link */}
+          {lead.notes && (lead.notes.includes("link do imóvel") || lead.notes.includes("via link")) && (
+            <div className="flex items-start gap-1.5 mt-2 bg-purple-50/80 p-1.5 rounded-md border border-purple-100">
+              <Building2 className="w-3 h-3 text-[#7E22CE] shrink-0 mt-0.5" />
+              <p className="text-[10px] text-slate-700 line-clamp-2 leading-tight" title={lead.notes}>
+                {lead.notes}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-2.5">
           <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full", statusColors[lead.status])}>
             {statusOptions.find(s => s.value === lead.status)?.label}
           </span>
-          {isImobiliaria && responsavel && (
-            <span className="text-[10px] text-slate-400 truncate max-w-[80px]">{responsavel.full_name}</span>
-          )}
+          <div className="flex items-center gap-1">
+            {isImobiliaria && responsavel && (
+              <span className="text-[10px] text-slate-400 truncate max-w-[60px]">{responsavel.full_name}</span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); handleMoveStatus(lead, "next"); }}
+              className="p-0.5 rounded hover:bg-purple-50 transition-colors"
+              title="Avançar status"
+            >
+              <ArrowRight className="w-3 h-3 text-[#7E22CE]" />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -547,7 +579,22 @@ const Leads = () => {
                           </td>
                         )}
                         <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-1">
+                          <div className="flex justify-end items-center gap-1">
+                            {/* Seta de mudança rápida de status */}
+                            <select
+                              value={lead.status}
+                              onChange={async (e) => {
+                                e.stopPropagation();
+                                const newStatus = e.target.value as typeof lead.status;
+                                const { error } = await supabase.from("leads").update({ status: newStatus }).eq("id", lead.id);
+                                if (!error) queryClient.invalidateQueries({ queryKey: ["leads"] });
+                                else toast.error("Erro ao atualizar status");
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs border border-border rounded-lg px-2 py-1 bg-background text-foreground cursor-pointer"
+                            >
+                              {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
                             {(isImobiliaria || isMine) && (
                               <>
                                 <Button variant="ghost" size="icon" onClick={() => openEdit(lead)}><Pencil className="w-4 h-4" /></Button>
@@ -701,10 +748,23 @@ const Leads = () => {
                 </div>
                 {viewingLead.notes && (
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">Observacoes</p>
-                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                      <p className="text-sm text-slate-700 leading-relaxed">{viewingLead.notes}</p>
-                    </div>
+                    {/* Destaca se veio de um imóvel compartilhado */}
+                    {viewingLead.notes.includes("link do imóvel") || viewingLead.notes.includes("via link") ? (
+                      <>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">Origem</p>
+                        <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-[#7E22CE] shrink-0" />
+                          <p className="text-sm text-slate-700 leading-relaxed">{viewingLead.notes}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs font-semibold text-slate-500 uppercase">Observacoes</p>
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                          <p className="text-sm text-slate-700 leading-relaxed">{viewingLead.notes}</p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 {viewingLead.created_at && (

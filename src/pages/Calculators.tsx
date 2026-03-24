@@ -311,7 +311,7 @@ const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; m
                 </div>
               </div>
 
-              {/* Avisos específicos - mantidos iguais */}
+              {/* Avisos específicos */}
               {banco.bancoId === "inter" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
@@ -498,14 +498,14 @@ const FinanciamentoCalc = () => {
     const valor = parseFloat(form.valorImovel.replace(/\D/g, "")) / 100 || 0;
     const entradaVal = parseFloat(form.entrada.replace(/\D/g, "")) / 100 || 0;
     if (valor > 0 && bancosAtivos.length > 0) {
-      let entradaMin = 0;
+      let entradaMin = Infinity;
       bancos.filter(b => bancosAtivos.includes(b.id)).forEach(banco => {
         const ltv = banco.maxFinancingPercent[tipoImovel] as any;
         const percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
         const min = valor * (1 - percentMax / 100);
-        if (min > entradaMin) entradaMin = min;
+        if (min < entradaMin) entradaMin = min;
       });
-      setEntradaMinimaInfo(`Entrada minima necessaria: ${formatCurrency(entradaMin)} (${((entradaMin/valor)*100).toFixed(1)}%)`);
+      setEntradaMinimaInfo(`Entrada mínima necessária: ${formatCurrency(entradaMin)} (${((entradaMin/valor)*100).toFixed(1)}%)`);
 
       const menoresTaxas = bancos
         .filter(b => bancosAtivos.includes(b.id))
@@ -519,7 +519,7 @@ const FinanciamentoCalc = () => {
         if (financiadoSim > 0) {
           const parcelaExemplo = financiadoSim * (taxaMensal * Math.pow(1 + taxaMensal, prazo)) / (Math.pow(1 + taxaMensal, prazo) - 1);
           const rendaMin = parcelaExemplo / 0.3;
-          setRendaMinimaInfo(`Renda minima aproximada: ${formatCurrency(rendaMin)} (30% da parcela)`);
+          setRendaMinimaInfo(`Renda mínima aproximada: ${formatCurrency(rendaMin)} (30% da parcela)`);
         } else {
           setRendaMinimaInfo("");
         }
@@ -546,7 +546,7 @@ const FinanciamentoCalc = () => {
     const idadeMaisNova = segundoProponente.ativo && idadeSegundoProponente < idadeProponente ? idadeSegundoProponente : idadeProponente;
 
     if (valor <= 0) {
-      toast.error("Informe o valor do imovel");
+      toast.error("Informe o valor do imóvel");
       return;
     }
     if (rendaMensalValor <= 0) {
@@ -558,36 +558,17 @@ const FinanciamentoCalc = () => {
       return;
     }
 
-    let entradaMinimaNecessaria = 0;
-    for (const banco of bancos.filter(b => bancosAtivos.includes(b.id))) {
-      const ltv = banco.maxFinancingPercent[tipoImovel] as any;
-      const percentMax = typeof ltv["sac"] === "number" ? ltv["sac"] : 80;
-      const entradaMin = valor * (1 - percentMax / 100);
-      if (entradaMin > entradaMinimaNecessaria) entradaMinimaNecessaria = entradaMin;
-    }
-
-    if (simuladoPor === "financiamento") {
-      if (entradaVal < entradaMinimaNecessaria - 0.01) {
-        setErroEntrada(`Entrada insuficiente. Para os bancos selecionados, a entrada minima necessaria e ${formatCurrency(entradaMinimaNecessaria)} (${((entradaMinimaNecessaria/valor)*100).toFixed(1)}%).`);
-        setResults([]);
-        return;
-      } else {
-        setErroEntrada(null);
-      }
-    } else {
-      setErroEntrada(null);
-    }
-
     if (dataNascimento && prazoMaxUser < prazoSolicitado) {
       const nasc = new Date(dataNascimento);
       const idade = new Date().getFullYear() - nasc.getFullYear();
-      setPrazoMaximoAviso(`O prazo foi ajustado individualmente em alguns bancos devido a idade do proponente (${idade} anos).`);
+      setPrazoMaximoAviso(`O prazo foi ajustado individualmente em alguns bancos devido à idade do proponente (${idade} anos).`);
     } else {
       setPrazoMaximoAviso("");
     }
 
     const bancoMap = new Map<string, BancoAgrupado>();
     const rendasMinimasTemp: Record<string, number> = {};
+    const entradasMinimasTemp: Record<string, number> = {}; // Para armazenar entrada mínima de cada banco
     let algumaSimulacaoGerada = false;
 
     for (const banco of bancos) {
@@ -711,7 +692,11 @@ const FinanciamentoCalc = () => {
             if (financiadoCalc <= 0) continue;
 
             const entradaMinBanco = valor * (1 - ltvEfetivo / 100);
-            if (entradaEfetiva < entradaMinBanco - 0.01) continue;
+            if (entradaEfetiva < entradaMinBanco - 0.01) {
+              // Registra a entrada mínima para este banco/linha
+              entradasMinimasTemp[`${banco.nome} (${linha.nome})`] = entradaMinBanco;
+              continue;
+            }
 
             const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
             const taxasMensaisTotal = taxasAdicionais + segurosMensais;
@@ -817,7 +802,11 @@ const FinanciamentoCalc = () => {
           const ltv = banco.maxFinancingPercent[tipoImovel] as any;
           const percentMax: number = (typeof ltv[sis] === "number") ? ltv[sis] : 80;
           const entradaMinBanco = valor * (1 - percentMax / 100);
-          if (entradaEfetiva < entradaMinBanco - 0.01) continue;
+          if (entradaEfetiva < entradaMinBanco - 0.01) {
+            // Registra a entrada mínima para este banco
+            entradasMinimasTemp[banco.nome] = entradaMinBanco;
+            continue;
+          }
 
           const segurosMensais = calcularSegurosMensais(banco, financiadoCalc, valor);
           const taxasMensaisTotal = taxasAdicionais + segurosMensais;
@@ -876,6 +865,21 @@ const FinanciamentoCalc = () => {
       }
     }
 
+    // Exibe informações sobre bancos que não atendem a entrada mínima
+    const bancosComEntradaInsuficiente = Object.keys(entradasMinimasTemp);
+    if (bancosComEntradaInsuficiente.length > 0 && !algumaSimulacaoGerada) {
+      const mensagem = bancosComEntradaInsuficiente.map(b => 
+        `${b}: entrada mínima de ${formatCurrency(entradasMinimasTemp[b])}`
+      ).join(" • ");
+      setEntradaMinimaInfo(`Sua entrada atual (${formatCurrency(entradaVal)}) não atende aos seguintes bancos: ${mensagem}`);
+    } else if (bancosComEntradaInsuficiente.length > 0) {
+      const mensagem = bancosComEntradaInsuficiente.map(b => 
+        `${b}: entrada mínima de ${formatCurrency(entradasMinimasTemp[b])}`
+      ).join(" • ");
+      setEntradaMinimaInfo(`Os seguintes bancos exigem entrada maior: ${mensagem}`);
+    }
+
+    // Exibe informações sobre bancos que não atendem a renda
     const bancosComRendaInsuficiente = Object.keys(rendasMinimasTemp);
     if (bancosComRendaInsuficiente.length > 0 && !algumaSimulacaoGerada) {
       const mensagem = bancosComRendaInsuficiente.map(b => 
@@ -891,11 +895,11 @@ const FinanciamentoCalc = () => {
 
     if (!algumaSimulacaoGerada) {
       if (simuladoPor === "renda") {
-        setNenhumaSimulacaoMsg("Nenhum banco atende a sua renda com a entrada minima exigida. Tente aumentar a renda ou reduzir o valor do imovel.");
+        setNenhumaSimulacaoMsg("Nenhum banco atende a sua renda com a entrada mínima exigida. Tente aumentar a renda ou reduzir o valor do imóvel.");
       } else if (simuladoPor === "parcela") {
-        setNenhumaSimulacaoMsg("Nenhum banco atende a parcela desejada com a entrada minima exigida. Tente aumentar a parcela ou reduzir o valor do imovel.");
+        setNenhumaSimulacaoMsg("Nenhum banco atende a parcela desejada com a entrada mínima exigida. Tente aumentar a parcela ou reduzir o valor do imóvel.");
       } else {
-        setNenhumaSimulacaoMsg("Nenhuma simulacao encontrada com os criterios informados.");
+        setNenhumaSimulacaoMsg("Nenhuma simulação encontrada com os critérios informados.");
       }
       setResults([]);
       return;

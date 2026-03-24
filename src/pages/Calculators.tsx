@@ -133,9 +133,9 @@ const TabelaParcelas = ({ parcelas, titulo }: { parcelas: Parcela[]; titulo: str
   const tableRef = useRef<HTMLDivElement>(null);
   const handleDownloadPDF = () => {
     const rows = parcelas.map(p =>
-      `<tr><td style="padding:6px 10px;text-align:center">${p.numero} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.parcelaTotal)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.amortizacao)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.juros)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.taxas)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.saldo)} None</tr>`
+      `<tr><td style="padding:6px 10px;text-align:center">${p.numero} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.parcelaTotal)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.amortizacao)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.juros)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.taxas)} None<td style="padding:6px 10px;text-align:right">${formatCurrency(p.saldo)} None</td>`
     ).join("");
-    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>${titulo}</title><style>body{font-family:Arial,sans-serif;padding:32px;color:#1e293b}h1{font-size:20px;margin-bottom:4px}p{color:#64748b;font-size:13px;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}thead{background:#7E22CE;color:white}th{padding:8px 10px;text-align:right}th:first-child{text-align:center}tr:nth-child(even){background:#f8fafc}</style></head><body><h1>${titulo}</h1><p>Gerado pelo CRM R2 Tech · ${new Date().toLocaleDateString("pt-BR")}</p>\\n<table><thead>\\n<tr><th style="text-align:center">N°</th><th>Parcela Total</th><th>Amortizacao</th><th>Juros</th><th>MIP+DFI</th><th>Saldo Devedor</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>${titulo}</title><style>body{font-family:Arial,sans-serif;padding:32px;color:#1e293b}h1{font-size:20px;margin-bottom:4px}p{color:#64748b;font-size:13px;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}thead{background:#7E22CE;color:white}th{padding:8px 10px;text-align:right}th:first-child{text-align:center}tr:nth-child(even){background:#f8fafc}</style></head><body><h1>${titulo}</h1><p>Gerado pelo CRM R2 Tech · ${new Date().toLocaleDateString("pt-BR")}</p>\\n<table>\\n<thead>\\n<tr><th style="text-align:center">N°</th><th>Parcela Total</th><th>Amortizacao</th><th>Juros</th><th>MIP+DFI</th><th>Saldo Devedor</th></tr>\\n</thead>\\n<tbody>${rows}</tbody>\\n</table>\\n</body></html>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank");
@@ -151,7 +151,7 @@ const TabelaParcelas = ({ parcelas, titulo }: { parcelas: Parcela[]; titulo: str
       </div>
       <div className="rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[360px]">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[500px]">
             <thead className="sticky top-0 bg-[#7E22CE] text-white z-10">
               <tr>
                 <th className="py-2.5 px-3 text-center font-semibold">N°</th>
@@ -203,7 +203,7 @@ type Simulacao = {
   rendaSuficiente: boolean;
   tag: number;
   segurosMensais: number;
-  linhaNome?: string; // Identifica a modalidade da Caixa
+  linhaNome?: string;
 };
 
 type BancoAgrupado = {
@@ -252,7 +252,6 @@ const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; m
                 <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", sim.sistema === "sac" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700")}>
                   {sim.sistema.toUpperCase()}
                 </span>
-                {/* Exibe a modalidade da Caixa se existir */}
                 {sim.linhaNome && (
                   <span className={cn(
                     "text-xs font-semibold px-2 py-0.5 rounded-full",
@@ -312,7 +311,7 @@ const BancoResultCard = ({ banco, melhorSimulacaoId }: { banco: BancoAgrupado; m
                 </div>
               </div>
 
-              {/* Avisos específicos */}
+              {/* Avisos específicos - mantidos iguais */}
               {banco.bancoId === "inter" && (
                 <div className="mt-2 flex items-start gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-100 p-2 rounded-lg">
                   <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
@@ -771,7 +770,7 @@ const FinanciamentoCalc = () => {
           }
         }
       } else {
-        // Outros bancos (sem linhas especiais)
+        // Outros bancos
         for (const sis of sistemas) {
           const taxaAnual = banco.taxas[tipoImovel][sis];
           if (!taxaAnual) continue;
@@ -979,10 +978,10 @@ const FinanciamentoCalc = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Tipo de Imovel</Label>
-          <div className="flex gap-1 bg-muted p-1 rounded-lg">
+          <div className="flex gap-1 bg-muted p-1 rounded-lg flex-wrap">
             {(["residencial", "comercial", "rural"] as TipoImovel[]).map((t) => (
               <button key={t} onClick={() => { setTipoImovel(t); setResults([]); }}
-                className={cn("flex-1 py-1.5 rounded-md text-sm font-medium capitalize transition-all",
+                className={cn("flex-1 py-1.5 rounded-md text-sm font-medium capitalize transition-all text-center min-w-[80px]",
                   tipoImovel === t ? "bg-white text-[#7E22CE] shadow-sm" : "text-muted-foreground")}>
                 {t}
               </button>
@@ -991,10 +990,10 @@ const FinanciamentoCalc = () => {
         </div>
         <div className="space-y-2">
           <Label>Novo ou Usado?</Label>
-          <div className="flex gap-1 bg-muted p-1 rounded-lg">
+          <div className="flex gap-1 bg-muted p-1 rounded-lg flex-wrap">
             {(["novo", "usado"] as TipoUso[]).map((u) => (
               <button key={u} onClick={() => { setTipoUso(u); setResults([]); }}
-                className={cn("flex-1 py-1.5 rounded-md text-sm font-medium capitalize transition-all",
+                className={cn("flex-1 py-1.5 rounded-md text-sm font-medium capitalize transition-all text-center min-w-[80px]",
                   tipoUso === u ? "bg-white text-[#7E22CE] shadow-sm" : "text-muted-foreground")}>
                 {u === "novo" ? "Novo" : "Usado"}
               </button>
@@ -1046,177 +1045,184 @@ const FinanciamentoCalc = () => {
       </div>
 
       {/* Campos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label>Valor do Imovel</Label>
-          <Input placeholder="R$ 0,00" value={displayMoney(form.valorImovel)} onChange={(e) => handleMoney("valorImovel", e.target.value)} />
-          {!form.valorImovel && <p className="text-xs text-red-500">Campo obrigatório</p>}
+<div className="grid grid-cols-1 gap-4">
+  <div className="space-y-2">
+    <Label>Valor do Imovel</Label>
+    <Input placeholder="R$ 0,00" value={displayMoney(form.valorImovel)} onChange={(e) => handleMoney("valorImovel", e.target.value)} />
+    {!form.valorImovel && <p className="text-xs text-red-500">Campo obrigatório</p>}
+  </div>
+
+  {simuladoPor === "financiamento" && (
+    <div className="space-y-2">
+      <Label>Valor da Entrada</Label>
+      <Input placeholder="R$ 0,00" value={displayMoney(form.entrada)} onChange={(e) => handleMoney("entrada", e.target.value)} />
+      <p className="text-xs text-muted-foreground">Mínimo de 20% do valor do imóvel</p>
+    </div>
+  )}
+
+  {simuladoPor === "parcela" && (
+    <div className="space-y-2">
+      <Label>Parcela Desejada (R$/mes)</Label>
+      <Input placeholder="R$ 0,00" value={displayMoney(form.parcelaDesejada)} onChange={(e) => handleMoney("parcelaDesejada", e.target.value)} />
+      <p className="text-xs text-muted-foreground">Calcula o valor maximo financiavel</p>
+    </div>
+  )}
+
+  {simuladoPor === "renda" && (
+    <div className="space-y-2">
+      <Label>Renda Mensal Bruta (Principal)</Label>
+      <Input placeholder="R$ 0,00" value={displayMoney(form.rendaMensal)} onChange={(e) => handleMoney("rendaMensal", e.target.value)} />
+      <p className="text-xs text-muted-foreground">Parcela limitada a 30% da renda</p>
+    </div>
+  )}
+
+  {/* Campo de renda OBRIGATÓRIO para todos os modos */}
+  {simuladoPor !== "renda" && (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1.5">
+        <DollarSign className="w-3.5 h-3.5" /> Renda Mensal Bruta *
+      </Label>
+      <Input 
+        placeholder="R$ 0,00" 
+        value={displayMoney(form.rendaMensal)} 
+        onChange={(e) => handleMoney("rendaMensal", e.target.value)} 
+      />
+      <p className="text-xs text-muted-foreground">
+        Parcela limitada a 30% da renda. Campo obrigatório.
+      </p>
+    </div>
+  )}
+
+  <div className="space-y-2">
+    <Label className="whitespace-nowrap">Taxas Adicionais (R$/mes)</Label>
+    <Input placeholder="R$ 0,00" value={displayMoney(form.taxasMensais)} onChange={(e) => handleMoney("taxasMensais", e.target.value)} />
+    <p className="text-xs text-muted-foreground">MIP e DFI sao calculados automaticamente por banco</p>
+  </div>
+
+  <div className="space-y-2">
+    <Label>Prazo Solicitado (meses)</Label>
+    <Input
+      type="number"
+      min="1"
+      max="420"
+      value={form.prazo}
+      onChange={(e) => setForm((f) => ({ ...f, prazo: e.target.value }))}
+      placeholder="420"
+    />
+    <p className="text-xs text-muted-foreground">{Math.round(parseInt(form.prazo || "0") / 12)} anos (max 420 meses)</p>
+  </div>
+
+  <div className="space-y-2">
+    <Label className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Data de Nasc. (Principal)</Label>
+    <Input
+      type="text"
+      inputMode="numeric"
+      placeholder="DD/MM/AAAA"
+      maxLength={10}
+      value={dataNascimento ? (() => { const d = dataNascimento.split("-"); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : dataNascimento; })() : ""}
+      onChange={(e) => {
+        const v = e.target.value.replace(/\D/g, "");
+        const fmt = v.length <= 2 ? v : v.length <= 4 ? `${v.slice(0,2)}/${v.slice(2)}` : `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4,8)}`;
+        if (v.length === 8) {
+          const iso = `${v.slice(4,8)}-${v.slice(2,4)}-${v.slice(0,2)}`;
+          setDataNascimento(iso);
+        } else {
+          setDataNascimento(fmt);
+        }
+      }}
+    />
+    <p className="text-xs text-muted-foreground">Idade mínima: 18 anos | Máxima: 80 anos</p>
+    {dataNascimento && calcularIdade(dataNascimento) < 18 && (
+      <p className="text-xs text-red-500">Idade mínima para financiamento é 18 anos</p>
+    )}
+    {dataNascimento && calcularIdade(dataNascimento) > 80 && (
+      <p className="text-xs text-red-500">Idade máxima para financiamento é 80 anos</p>
+    )}
+  </div>
+
+  {/* Segundo Proponente */}
+  <div className="space-y-2">
+    <div className="flex items-center justify-between">
+      <Label className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Segundo Proponente</Label>
+      {!segundoProponente.ativo ? (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSegundoProponente({ ...segundoProponente, ativo: true })}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
+        </Button>
+      ) : (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSegundoProponente({ ativo: false, nome: "", cpf: "", renda: "", dataNascimento: "" })}>
+          <X className="w-3.5 h-3.5 mr-1" /> Remover
+        </Button>
+      )}
+    </div>
+    {segundoProponente.ativo && (
+      <div className="space-y-2 p-3 border rounded-lg bg-muted/20">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Nome completo</Label>
+            <Input 
+              placeholder="Nome" 
+              value={segundoProponente.nome} 
+              onChange={(e) => setSegundoProponente({ ...segundoProponente, nome: e.target.value })}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">CPF</Label>
+            <Input 
+              placeholder="000.000.000-00" 
+              value={segundoProponente.cpf} 
+              onChange={(e) => setSegundoProponente({ ...segundoProponente, cpf: e.target.value })}
+              className="h-8 text-sm"
+            />
+          </div>
         </div>
-        {simuladoPor === "financiamento" && (
-          <div className="space-y-2">
-            <Label>Valor da Entrada</Label>
-            <Input placeholder="R$ 0,00" value={displayMoney(form.entrada)} onChange={(e) => handleMoney("entrada", e.target.value)} />
-            <p className="text-xs text-muted-foreground">Mínimo de 20% do valor do imóvel</p>
-          </div>
-        )}
-        {simuladoPor === "parcela" && (
-          <div className="space-y-2">
-            <Label>Parcela Desejada (R$/mes)</Label>
-            <Input placeholder="R$ 0,00" value={displayMoney(form.parcelaDesejada)} onChange={(e) => handleMoney("parcelaDesejada", e.target.value)} />
-            <p className="text-xs text-muted-foreground">Calcula o valor maximo financiavel</p>
-          </div>
-        )}
-        {simuladoPor === "renda" && (
-          <div className="space-y-2">
-            <Label>Renda Mensal Bruta (Principal)</Label>
-            <Input placeholder="R$ 0,00" value={displayMoney(form.rendaMensal)} onChange={(e) => handleMoney("rendaMensal", e.target.value)} />
-            <p className="text-xs text-muted-foreground">Parcela limitada a 30% da renda</p>
-          </div>
-        )}
-        {/* Campo de renda OBRIGATÓRIO para todos os modos */}
-        {simuladoPor !== "renda" && (
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">
-              <DollarSign className="w-3.5 h-3.5" /> Renda Mensal Bruta *
-            </Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Renda mensal</Label>
             <Input 
               placeholder="R$ 0,00" 
-              value={displayMoney(form.rendaMensal)} 
-              onChange={(e) => handleMoney("rendaMensal", e.target.value)} 
+              value={displayMoney(segundoProponente.renda)} 
+              onChange={(e) => setSegundoProponente({ ...segundoProponente, renda: e.target.value.replace(/\D/g, "") })}
+              className="h-8 text-sm"
             />
-            <p className="text-xs text-muted-foreground">
-              Parcela limitada a 30% da renda. Campo obrigatório.
-            </p>
           </div>
-        )}
-        <div className="space-y-2">
-          <Label>Taxas Adicionais (R$/mes)</Label>
-          <Input placeholder="R$ 0,00" value={displayMoney(form.taxasMensais)} onChange={(e) => handleMoney("taxasMensais", e.target.value)} />
-          <p className="text-xs text-muted-foreground">MIP e DFI sao calculados automaticamente por banco</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Prazo Solicitado (meses)</Label>
-          <Input
-            type="number"
-            min="1"
-            max="420"
-            value={form.prazo}
-            onChange={(e) => setForm((f) => ({ ...f, prazo: e.target.value }))}
-            placeholder="420"
-          />
-          <p className="text-xs text-muted-foreground">{Math.round(parseInt(form.prazo || "0") / 12)} anos (max 420 meses)</p>
-        </div>
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Data de Nasc. (Principal)</Label>
-          <Input
-            type="text"
-            inputMode="numeric"
-            placeholder="DD/MM/AAAA"
-            maxLength={10}
-            value={dataNascimento ? (() => { const d = dataNascimento.split("-"); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : dataNascimento; })() : ""}
-            onChange={(e) => {
-              const v = e.target.value.replace(/\D/g, "");
-              const fmt = v.length <= 2 ? v : v.length <= 4 ? `${v.slice(0,2)}/${v.slice(2)}` : `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4,8)}`;
-              if (v.length === 8) {
-                const iso = `${v.slice(4,8)}-${v.slice(2,4)}-${v.slice(0,2)}`;
-                setDataNascimento(iso);
-              } else {
-                setDataNascimento(fmt);
-              }
-            }}
-          />
-          <p className="text-xs text-muted-foreground">Idade mínima: 18 anos | Máxima: 80 anos</p>
-          {dataNascimento && calcularIdade(dataNascimento) < 18 && (
-            <p className="text-xs text-red-500">Idade mínima para financiamento é 18 anos</p>
-          )}
-          {dataNascimento && calcularIdade(dataNascimento) > 80 && (
-            <p className="text-xs text-red-500">Idade máxima para financiamento é 80 anos</p>
-          )}
-        </div>
-        
-        {/* Segundo Proponente */}
-        <div className="space-y-2 col-span-2 md:col-span-1">
-          <div className="flex items-center justify-between">
-            <Label className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Segundo Proponente</Label>
-            {!segundoProponente.ativo ? (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setSegundoProponente({ ...segundoProponente, ativo: true })}>
-                <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
-              </Button>
-            ) : (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setSegundoProponente({ ativo: false, nome: "", cpf: "", renda: "", dataNascimento: "" })}>
-                <X className="w-3.5 h-3.5 mr-1" /> Remover
-              </Button>
-            )}
+          <div className="space-y-1">
+            <Label className="text-xs">Data de nasc.</Label>
+            <Input 
+              placeholder="DD/MM/AAAA" 
+              value={segundoProponente.dataNascimento} 
+              onChange={(e) => setSegundoProponente({ ...segundoProponente, dataNascimento: e.target.value })}
+              className="h-8 text-sm"
+            />
           </div>
-          {segundoProponente.ativo && (
-            <div className="space-y-2 p-3 border rounded-lg bg-muted/20">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Nome completo</Label>
-                  <Input 
-                    placeholder="Nome" 
-                    value={segundoProponente.nome} 
-                    onChange={(e) => setSegundoProponente({ ...segundoProponente, nome: e.target.value })}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">CPF</Label>
-                  <Input 
-                    placeholder="000.000.000-00" 
-                    value={segundoProponente.cpf} 
-                    onChange={(e) => setSegundoProponente({ ...segundoProponente, cpf: e.target.value })}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Renda mensal</Label>
-                  <Input 
-                    placeholder="R$ 0,00" 
-                    value={displayMoney(segundoProponente.renda)} 
-                    onChange={(e) => setSegundoProponente({ ...segundoProponente, renda: e.target.value.replace(/\D/g, "") })}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Data de nasc.</Label>
-                  <Input 
-                    placeholder="DD/MM/AAAA" 
-                    value={segundoProponente.dataNascimento} 
-                    onChange={(e) => setSegundoProponente({ ...segundoProponente, dataNascimento: e.target.value })}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="space-y-2 col-span-2 md:col-span-1">
-          <Label className="flex items-center gap-1.5 text-sm font-medium">Possui 3+ anos de FGTS?</Label>
-          <div className="flex gap-2">
-            {([{ v: true, label: "Sim" }, { v: false, label: "Nao" }] as const).map(({ v, label }) => (
-              <button key={label} type="button"
-                onClick={() => setTemFgts(v)}
-                className={cn("flex-1 py-2 rounded-lg border text-xs font-medium transition-all",
-                  temFgts === v
-                    ? "border-purple-600 bg-purple-50 text-purple-700"
-                    : "border-slate-200 text-slate-500 hover:border-slate-300"
-                )}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {temFgts === true && (
-            <p className="text-xs text-green-600 font-medium">✓ FGTS disponivel: entrada, amortizacao (a cada 2 anos) ou ate 80% das parcelas por 12 meses.</p>
-          )}
-          {temFgts === false && (
-            <p className="text-xs text-slate-400">Sem FGTS disponivel. Financiamento via recursos proprios ou SBPE.</p>
-          )}
         </div>
       </div>
+    )}
+  </div>
+
+  <div className="space-y-2">
+    <Label className="flex items-center gap-1.5 text-sm font-medium">Possui 3+ anos de FGTS?</Label>
+    <div className="flex gap-2">
+      {([{ v: true, label: "Sim" }, { v: false, label: "Nao" }] as const).map(({ v, label }) => (
+        <button key={label} type="button"
+          onClick={() => setTemFgts(v)}
+          className={cn("flex-1 py-2 rounded-lg border text-xs font-medium transition-all",
+            temFgts === v
+              ? "border-purple-600 bg-purple-50 text-purple-700"
+              : "border-slate-200 text-slate-500 hover:border-slate-300"
+          )}>
+          {label}
+        </button>
+      ))}
+    </div>
+    {temFgts === true && (
+      <p className="text-xs text-green-600 font-medium">✓ FGTS disponivel: entrada, amortizacao (a cada 2 anos) ou ate 80% das parcelas por 12 meses.</p>
+    )}
+    {temFgts === false && (
+      <p className="text-xs text-slate-400">Sem FGTS disponivel. Financiamento via recursos proprios ou SBPE.</p>
+    )}
+  </div>
+</div>
 
       {entradaMinimaInfo && (
         <Alert className="bg-blue-50 border-blue-200">

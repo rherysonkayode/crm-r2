@@ -31,6 +31,7 @@ import Convite from "./pages/Convite";
 import Home from "./pages/Home";
 import Subscription from "./pages/Subscription";
 import AssinaturaSucesso from "./pages/AssinaturaSucesso";
+import CatalogoPublico from "./pages/CatalogoPublico";
 import AssinaturaCancelado from "./pages/AssinaturaCancelado";
 import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
@@ -145,42 +146,47 @@ const App = () => (
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <ThemeProvider>
-            <Routes>
-              <Route path="/"                      element={<Home />} />
-              <Route path="/home"                  element={<Home />} />
-              <Route path="/auth"                  element={<PublicRoute><Auth /></PublicRoute>} />
-              <Route path="/forgot-password"       element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-              <Route path="/reset-password"        element={<ResetPassword />} />
-              <Route path="/confirmar-email"       element={<ConfirmEmail />} />
-              <Route path="/termos"                element={<Termos />} />
-              <Route path="/privacidade"           element={<Privacidade />} />
-              <Route path="/faq"                   element={<FAQ />} />
-              <Route path="/convite/:token"        element={<Convite />} />
-              <Route path="/imovel/:id"             element={<PropertyPublic />} />
+        <Routes>
+  {/* Rotas públicas (sem proteção) */}
+  <Route path="/"                      element={<Home />} />
+  <Route path="/home"                  element={<Home />} />
+  <Route path="/auth"                  element={<PublicRoute><Auth /></PublicRoute>} />
+  <Route path="/forgot-password"       element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+  <Route path="/reset-password"        element={<ResetPassword />} />
+  <Route path="/confirmar-email"       element={<ConfirmEmail />} />
+  <Route path="/termos"                element={<Termos />} />
+  <Route path="/privacidade"           element={<Privacidade />} />
+  <Route path="/faq"                   element={<FAQ />} />
+  <Route path="/convite/:token"        element={<Convite />} />
+  
+  {/* Rotas públicas com parâmetros - IMPORTANTE: colocar antes do NotFound */}
+  <Route path="/imovel/:id"            element={<PropertyPublic />} />
+  <Route path="/catalogo/:userId"      element={<CatalogoPublico />} />
 
-              {/* Painel exclusivo do gestor */}
-              <Route path="/admin"                 element={<SuperAdminRoute><AdminPanel /></SuperAdminRoute>} />
+  {/* Rotas protegidas */}
+  <Route path="/admin"                 element={<SuperAdminRoute><AdminPanel /></SuperAdminRoute>} />
+  <Route path="/subscription"          element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+  <Route path="/dashboard"             element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
+  <Route path="/leads"                 element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+  <Route path="/properties"            element={<ProtectedRoute><Properties /></ProtectedRoute>} />
+  <Route path="/funnel"                element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
+  <Route path="/calendar"              element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+  <Route path="/team"                  element={<ProtectedRoute><Team /></ProtectedRoute>} />
+  <Route path="/team/:id"              element={<ProtectedRoute><TeamDetails /></ProtectedRoute>} />
+  <Route path="/deal/:id"              element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
+  <Route path="/deal/:id/commissions"  element={<ProtectedRoute><DealCommissionsEdit /></ProtectedRoute>} />
+  <Route path="/settings"              element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+  <Route path="/calculators"           element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
+  <Route path="/advertise"             element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
+  <Route path="/sales"                 element={<ProtectedRoute><Sales /></ProtectedRoute>} />
 
-              <Route path="/subscription"          element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
-              <Route path="/dashboard"             element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
-              <Route path="/leads"                 element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-              <Route path="/properties"            element={<ProtectedRoute><Properties /></ProtectedRoute>} />
-              <Route path="/funnel"                element={<ProtectedRoute><Funnel /></ProtectedRoute>} />
-              <Route path="/calendar"              element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-              <Route path="/team"                  element={<ProtectedRoute><Team /></ProtectedRoute>} />
-              <Route path="/team/:id"              element={<ProtectedRoute><TeamDetails /></ProtectedRoute>} />
-              <Route path="/deal/:id"              element={<ProtectedRoute><DealDetails /></ProtectedRoute>} />
-              <Route path="/deal/:id/commissions"  element={<ProtectedRoute><DealCommissionsEdit /></ProtectedRoute>} />
-              <Route path="/settings"              element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/calculators"           element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
-              <Route path="/advertise"             element={<ProtectedRoute><Advertise /></ProtectedRoute>} />
-              <Route path="/sales"                element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+  {/* Rotas de assinatura (públicas) */}
+  <Route path="/assinatura/sucesso"    element={<AssinaturaSucesso />} />
+  <Route path="/assinatura/cancelado"  element={<AssinaturaCancelado />} />
 
-              <Route path="/assinatura/sucesso"     element={<AssinaturaSucesso />} />
-              <Route path="/assinatura/cancelado"   element={<AssinaturaCancelado />} />
-
-              <Route path="*"                      element={<NotFound />} />
-            </Routes>
+  {/* 404 - sempre por último */}
+  <Route path="*"                      element={<NotFound />} />
+</Routes>
             <ChatBot />
           </ThemeProvider>
         </AuthProvider>

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Pencil, MapPin, BedDouble, Maximize,
-  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye, Phone,
+  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye, Phone, Users, LayoutGrid
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -77,7 +77,6 @@ const usePropertyViews = (userId: string | null | undefined, companyId: string |
     queryKey: ["property_views", userId, companyId],
     queryFn: async () => {
       if (!userId) return {};
-      // Busca imóveis do usuário (por created_by ou company_id)
       let query = supabase.from("properties").select("id");
       if (companyId) {
         query = query.eq("company_id", companyId) as any;
@@ -108,7 +107,6 @@ const useLeadContactCounts = (propertyIds: string[]) => {
         .from("leads")
         .select("notes")
         .or(propertyIds.map(id => `notes.ilike.%${id}%`).join(","));
-      // Contar por property_id nas notes
       const counts: Record<string, number> = {};
       (data ?? []).forEach((l: any) => {
         propertyIds.forEach(id => {
@@ -134,7 +132,7 @@ const Properties = () => {
   const { data: contactCounts = {} } = useLeadContactCounts(propertyIds);
   const queryClient = useQueryClient();
 
-  const [search,        setSearch]       = useState("");
+  const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType,   setFilterType]   = useState("all");
   const [showFilters,  setShowFilters]  = useState(false);
@@ -167,12 +165,22 @@ const Properties = () => {
   const setForm = (newForm: typeof form | ((prev: typeof form) => typeof form)) => {
     setFormState(prev => {
       const next = typeof newForm === "function" ? newForm(prev) : newForm;
-      // Só persiste quando está criando (não editando)
       if (!editing) {
         try { sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch {}
       }
       return next;
     });
+  };
+
+  // Função auxiliar para atualizar o formulário
+  const updateForm = (field: string, value: any) => {
+    setForm({ ...form, [field]: value });
+  };
+
+  // Função para abrir o diálogo de novo imóvel
+  const openNewDialog = () => {
+    resetForm();
+    setDialogOpen(true);
   };
 
   const resetForm = () => {
@@ -181,11 +189,6 @@ const Properties = () => {
     try { sessionStorage.removeItem(FORM_STORAGE_KEY); } catch {}
     setEditing(null);
     setTempImages([]);
-  };
-
-  const openNewDialog = () => {
-      setEditing(null);
-      setDialogOpen(true);
   };
 
   const openEdit = (prop: any) => {
@@ -224,7 +227,6 @@ const Properties = () => {
     setViewDialogOpen(true);
   };
 
-  // Corretor pode editar/excluir apenas imóveis que criou
   const canEditProp  = (prop: any) => isImobiliaria || prop.created_by === profile?.id;
   const canDeleteProp = (prop: any) => isImobiliaria || prop.created_by === profile?.id;
 
@@ -291,13 +293,11 @@ const Properties = () => {
 
   const handleRegistrarVenda = async () => {
     if (!viewing) return;
-    // Para corretor independente, corretor_id é ele mesmo
     const corretorId = isCorretor ? profile!.id : vendaForm.corretor_id;
     if (!vendaForm.lead_id || !corretorId || !vendaForm.valor) {
       toast.error("Preencha todos os campos obrigatórios"); return;
     }
     try {
-      // Criar deal direto no banco
       const { error: dealError } = await supabase.from("deals").insert({
         lead_id:     vendaForm.lead_id,
         property_id: viewing.id,
@@ -309,14 +309,12 @@ const Properties = () => {
       });
       if (dealError) throw dealError;
 
-      // Atualizar status do imóvel para vendido
       const { error: propError } = await supabase
         .from("properties")
         .update({ status: "vendido" })
         .eq("id", viewing.id);
       if (propError) throw propError;
 
-      // Atualizar status do lead para convertido
       await supabase.from("leads").update({ status: "convertido" }).eq("id", vendaForm.lead_id);
 
       toast.success("Venda registrada com sucesso!");
@@ -367,88 +365,104 @@ const Properties = () => {
               {isCorretor ? "Seu portfólio de imóveis" : "Portfólio de imóveis da empresa"}
             </p>
           </div>
-          {canCreateProperties && (
-            <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
-              <DialogTrigger asChild>
-                <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]" onClick={openNewDialog}>
-                  <Plus className="w-4 h-4 mr-2" />Novo Imóvel
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>{editing ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Fotos do Imóvel</Label>
-                    {editing && editing.id ? (
-                      <ImageUploadMultiple
-                        propertyId={editing.id}
-                        images={getImagesForProperty(editing.id)}
-                        onUploadSuccess={async (url) => {
-                          const { error } = await (supabase.from("property_images" as any).insert({ property_id: editing.id, url, position: getImagesForProperty(editing.id).length }) as any);
-                          if (!error) { await refetchImages(); toast.success("Imagem adicionada!"); }
-                          else toast.error("Erro ao salvar imagem: " + error.message);
-                        }}
-                        onRemove={async (imageId) => {
-                          await (supabase.from("property_images" as any).delete().eq("id", imageId) as any);
-                          await refetchImages();
-                        }}
+          <div className="flex gap-2">
+            {/* Botão compartilhar catálogo */}
+            <Button
+              variant="outline"
+              className="gap-2 border-[#7E22CE] text-[#7E22CE] hover:bg-purple-50"
+              onClick={() => {
+                const link = `${window.location.origin}/#/catalogo/${profile?.id}`;
+                navigator.clipboard.writeText(link);
+                toast.success("Link do catálogo copiado!");
+              }}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">Compartilhar catálogo</span>
+              <span className="sm:hidden">Catálogo</span>
+            </Button>
+
+            {canCreateProperties && (
+              <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
+                <DialogTrigger asChild>
+                  <Button className="bg-[#7E22CE] hover:bg-[#6b21a8]" onClick={openNewDialog}>
+                    <Plus className="w-4 h-4 mr-2" />Novo Imóvel
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle>{editing ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle></DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Fotos do Imóvel</Label>
+                      {editing && editing.id ? (
+                        <ImageUploadMultiple
+                          propertyId={editing.id}
+                          images={getImagesForProperty(editing.id)}
+                          onUploadSuccess={async (url) => {
+                            const { error } = await (supabase.from("property_images" as any).insert({ property_id: editing.id, url, position: getImagesForProperty(editing.id).length }) as any);
+                            if (!error) { await refetchImages(); toast.success("Imagem adicionada!"); }
+                            else toast.error("Erro ao salvar imagem: " + error.message);
+                          }}
+                          onRemove={async (imageId) => {
+                            await (supabase.from("property_images" as any).delete().eq("id", imageId) as any);
+                            await refetchImages();
+                          }}
+                        />
+                      ) : (
+                        <ImageUploadMultiple
+                          propertyId="temp"
+                          images={tempImages}
+                          onUploadSuccess={(url) => setTempImages((prev) => [...prev, { id: `temp-${Date.now()}`, url, position: prev.length }])}
+                          onRemove={(imageId) => setTempImages((prev) => prev.filter((img) => img.id !== imageId))}
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Título *</Label>
+                      <Input value={form.title} onChange={(e) => editing ? setForm({ ...form, title: e.target.value }) : updateForm("title", e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Preço (R$)</Label>
+                        <Input type="number" value={form.price} onChange={(e) => editing ? setForm({ ...form, price: e.target.value }) : updateForm("price", e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo</Label>
+                        <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{typeOptions.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>Bairro</Label><Input value={form.neighborhood} onChange={(e) => editing ? setForm({ ...form, neighborhood: e.target.value }) : updateForm("neighborhood", e.target.value)} /></div>
+                      <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => editing ? setForm({ ...form, city: e.target.value }) : updateForm("city", e.target.value)} /></div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2"><Label>Quartos</Label><Input type="number" value={form.bedrooms} onChange={(e) => editing ? setForm({ ...form, bedrooms: e.target.value }) : updateForm("bedrooms", e.target.value)} /></div>
+                      <div className="space-y-2"><Label>Área (m²)</Label><Input type="number" value={form.area} onChange={(e) => editing ? setForm({ ...form, area: e.target.value }) : updateForm("area", e.target.value)} /></div>
+                      <div className="space-y-2">
+                        <Label>Status</Label>
+                        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Descrição</Label>
+                      <textarea
+                        className="w-full min-h-[100px] p-2 border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground placeholder:text-muted-foreground"
+                        value={form.description}
+                        onChange={(e) => editing ? setForm({ ...form, description: e.target.value }) : updateForm("description", e.target.value)}
+                        placeholder="Detalhes do imóvel..."
                       />
-                    ) : (
-                      <ImageUploadMultiple
-                        propertyId="temp"
-                        images={tempImages}
-                        onUploadSuccess={(url) => setTempImages((prev) => [...prev, { id: `temp-${Date.now()}`, url, position: prev.length }])}
-                        onRemove={(imageId) => setTempImages((prev) => prev.filter((img) => img.id !== imageId))}
-                      />
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Título *</Label>
-                    <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Preço (R$)</Label>
-                      <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Tipo</Label>
-                      <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{typeOptions.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
+                    <Button onClick={handleSave} className="bg-[#7E22CE] hover:bg-[#6b21a8]">{editing ? "Salvar" : "Criar"}</Button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Bairro</Label><Input value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} /></div>
-                    <div className="space-y-2"><Label>Cidade</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-                  </div>
-                  {/* Quartos / Área / Status — grid responsivo */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2"><Label>Quartos</Label><Input type="number" value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} /></div>
-                    <div className="space-y-2"><Label>Área (m²)</Label><Input type="number" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} /></div>
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{statusOptions.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Descrição</Label>
-                    <textarea
-                      className="w-full min-h-[100px] p-2 border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground placeholder:text-muted-foreground"
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      placeholder="Detalhes do imóvel..."
-                    />
-                  </div>
-                  <Button onClick={handleSave} className="bg-[#7E22CE] hover:bg-[#6b21a8]">{editing ? "Salvar" : "Criar"}</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
         {/* Barra de busca + filtros */}
@@ -534,7 +548,6 @@ const Properties = () => {
             ))}
           </div>
         ) : filtered?.length === 0 ? (
-          /* Estado vazio */
           <div className="flex flex-col items-center justify-center py-20 border border-dashed border-border rounded-xl text-center bg-card">
             <Building2 className="w-14 h-14 text-muted-foreground/20 mb-4" />
             <p className="font-semibold text-slate-700 mb-1">
@@ -605,22 +618,16 @@ const Properties = () => {
                       {statusOptions.find((s) => s.value === prop.status)?.label || prop.status}
                     </div>
                     <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                      {/* Visualizações do Imóvel */}
                       {(viewCounts as any)[prop.id] > 0 && (
                         <div className="flex items-center gap-1 bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                           <Eye className="w-2.5 h-2.5" />
                           {(viewCounts as any)[prop.id]}
                         </div>
                       )}
-                      
-                      {/* CORREÇÃO: Contador de Leads interessados (Quero ser contactado) */}
-                      {(leadsCount as any)[prop.id] > 0 && (
-                        <div 
-                          className="flex items-center gap-1 bg-[#7E22CE]/90 shadow-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full" 
-                          title={`${(leadsCount as any)[prop.id]} pessoa(s) entraram em contato por este imóvel`}
-                        >
+                      {(contactCounts as any)[prop.id] > 0 && (
+                        <div className="flex items-center gap-1 bg-[#7E22CE]/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                           <Phone className="w-2.5 h-2.5" />
-                          {(leadsCount as any)[prop.id]}
+                          {(contactCounts as any)[prop.id]}
                         </div>
                       )}
                     </div>
@@ -690,7 +697,6 @@ const Properties = () => {
                         <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
                           {viewImageIndex + 1}/{viewImages.length}
                         </span>
-                        {/* Thumbnails */}
                         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                           {viewImages.map((_, i) => (
                             <button key={i} onClick={() => setViewImageIndex(i)}
@@ -742,7 +748,7 @@ const Properties = () => {
                   </div>
                 )}
 
-                {/* Botões do modal — stack no mobile, row no desktop */}
+                {/* Botões do modal */}
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t">
                   <Button variant="outline" onClick={() => setViewDialogOpen(false)} className="sm:order-first">
                     Fechar
@@ -757,7 +763,6 @@ const Properties = () => {
                       <Trash2 className="w-4 h-4 mr-2" />Excluir
                     </Button>
                   )}
-                  {/* Registrar venda: imobiliária ou corretor dono do imóvel */}
                   {(isImobiliaria || (isCorretor && viewing.created_by === profile?.id)) && viewing.status !== "vendido" && (
                     <Button className="bg-green-600 hover:bg-green-700"
                       onClick={() => { setVendaForm({ ...vendaForm, valor: viewing.price?.toString() || "" }); setVendaDialogOpen(true); }}>
@@ -782,7 +787,6 @@ const Properties = () => {
                   <SelectContent>{leads?.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              {/* Corretor independente é sempre ele mesmo — campo oculto */}
               {isImobiliaria && (
                 <div className="space-y-2">
                   <Label>Corretor responsável *</Label>

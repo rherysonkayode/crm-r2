@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ImageUploadMultiple } from "@/components/ImageUploadMultiple";
 import { cn } from "@/lib/utils";
+import { LocationSearch } from "@/components/LocationSearch";
 
 const typeOptions = [
   { value: "apartamento", label: "Apartamento" },
@@ -146,6 +147,15 @@ const Properties = () => {
   const [vendaInfo,         setVendaInfo]         = useState<VendaInfo | null>(null);
   const [viewImageIndex,    setViewImageIndex]    = useState(0);
   const [vendaDialogOpen,   setVendaDialogOpen]   = useState(false);
+  
+  // Estado para localização
+  const [location, setLocation] = useState<{
+    address: string;
+    lat: number;
+    lng: number;
+    neighborhood?: string;
+    city?: string;
+  } | null>(null);
 
   const [vendaForm, setVendaForm] = useState({
     lead_id: "", corretor_id: "", valor: "",
@@ -186,6 +196,7 @@ const Properties = () => {
   const resetForm = () => {
     const empty = { title: "", price: "", neighborhood: "", city: "", type: "apartamento", status: "disponivel", bedrooms: "", area: "", description: "" };
     setFormState(empty);
+    setLocation(null);
     try { sessionStorage.removeItem(FORM_STORAGE_KEY); } catch {}
     setEditing(null);
     setTempImages([]);
@@ -203,6 +214,18 @@ const Properties = () => {
       area:         prop.area?.toString()     || "",
       description:  prop.description  || "",
     });
+    // Preencher localização se existir
+    if (prop.latitude && prop.longitude) {
+      setLocation({
+        address: prop.full_address || `${prop.neighborhood || ""}, ${prop.city || ""}`.trim(),
+        lat: prop.latitude,
+        lng: prop.longitude,
+        neighborhood: prop.neighborhood,
+        city: prop.city,
+      });
+    } else {
+      setLocation(null);
+    }
     setEditing(prop);
     setTempImages([]);
     setDialogOpen(true);
@@ -236,8 +259,11 @@ const Properties = () => {
     const payload = {
       title:        form.title,
       price:        form.price        ? parseFloat(form.price)    : null,
-      neighborhood: form.neighborhood || null,
-      city:         form.city         || null,
+      neighborhood: location?.neighborhood || form.neighborhood || null,
+      city:         location?.city || form.city || null,
+      full_address: location?.address || null,
+      latitude:     location?.lat || null,
+      longitude:    location?.lng || null,
       type:         form.type         as any,
       status:       form.status       as any,
       bedrooms:     form.bedrooms     ? parseInt(form.bedrooms)   : null,
@@ -420,6 +446,27 @@ const Properties = () => {
                       <Label>Título *</Label>
                       <Input value={form.title} onChange={(e) => editing ? setForm({ ...form, title: e.target.value }) : updateForm("title", e.target.value)} />
                     </div>
+                    
+                    {/* Busca de localização */}
+                    <div className="space-y-2">
+                      <Label>Localização do Imóvel</Label>
+                      <LocationSearch
+                        value={`${form.neighborhood || ""} ${form.city || ""}`.trim()}
+                        onChange={(loc) => {
+                          setLocation(loc);
+                          setForm({
+                            ...form,
+                            neighborhood: loc.neighborhood || form.neighborhood,
+                            city: loc.city || form.city,
+                          });
+                        }}
+                        placeholder="Buscar endereço, bairro ou cidade..."
+                      />
+                      <p className="text-[10px] text-slate-400">
+                        Digite o endereço para posicionar o imóvel no mapa. Isso ajuda os compradores a visualizar a localização.
+                      </p>
+                    </div>
+                    
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Preço (R$)</Label>
@@ -728,6 +775,27 @@ const Properties = () => {
                   <div><p className="text-xs text-muted-foreground mb-0.5">Quartos</p><p className="text-sm">{viewing.bedrooms || "-"}</p></div>
                   <div><p className="text-xs text-muted-foreground mb-0.5">Área (m²)</p><p className="text-sm">{viewing.area || "-"}</p></div>
                 </div>
+
+                {/* Localização no mapa (se tiver coordenadas) */}
+                {(viewing.latitude && viewing.longitude) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Localização no Mapa</p>
+                    <div className="bg-slate-100 rounded-lg p-3 text-center">
+                      <p className="text-xs text-slate-500 mb-2">
+                        Coordenadas: {viewing.latitude.toFixed(6)}, {viewing.longitude.toFixed(6)}
+                      </p>
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${viewing.latitude}&mlon=${viewing.longitude}#map=15/${viewing.latitude}/${viewing.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#7E22CE] hover:underline inline-flex items-center gap-1"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        Ver no mapa
+                      </a>
+                    </div>
+                  </div>
+                )}
 
                 {viewing.description && (
                   <div>

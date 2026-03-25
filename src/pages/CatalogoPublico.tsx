@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, BedDouble, Maximize, Phone, Search,
   Building2, ChevronRight, MessageCircle, Filter, X,
-  DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Share2, Download, CheckCircle2
+  DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Share2, Download, CheckCircle2, Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoR2 from "/logo-r2.svg";
@@ -21,6 +21,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { FinancingSimulator } from "@/components/FinancingSimulator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapComponent } from "@/components/ui/map/MapComponent";
+import { MapControls } from "@/components/ui/map/MapControls";
+import { useMapData } from "@/hooks/useMapData";
 
 const typeLabels: Record<string, string> = {
   apartamento: "Apartamento", casa: "Casa", terreno: "Terreno",
@@ -144,32 +149,55 @@ const CatalogoPublico = () => {
   const [leadName, setLeadName] = useState("");
   const [sendingLead, setSendingLead] = useState(false);
   const [leadSubmitted, setLeadSubmitted] = useState(false);
-  const [showThankYouModal, setShowThankYouModal] = useState(false); // Novo estado para o modal de agradecimento
+  const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+
+  // Dados do mapa
+  const {
+    properties: mapProperties,
+    loading: mapLoading,
+    viewState,
+    setViewState,
+    selectedProperty,
+    setSelectedProperty,
+  } = useMapData(userId || "");
+
+  // Controles do mapa
+  const handleZoomIn = () => {
+    setViewState({ ...viewState, zoom: viewState.zoom + 1 });
+  };
+
+  const handleZoomOut = () => {
+    setViewState({ ...viewState, zoom: Math.max(1, viewState.zoom - 1) });
+  };
+
+  const handleResetView = () => {
+    setViewState({
+      center: { lat: -15.7801, lng: -47.9292 },
+      zoom: 4,
+    });
+    setSelectedProperty(null);
+  };
 
   // Verificar se o lead já enviou antes
   useEffect(() => {
     const alreadySubmitted = localStorage.getItem(`lead_magnet_${userId}`);
     if (alreadySubmitted === 'true') {
       setLeadSubmitted(true);
-      // Se já enviou, não mostra nada
     }
   }, [userId]);
 
   // Mostrar modal de checklist APENAS se o lead NUNCA enviou e após 10 segundos
   useEffect(() => {
-    // Se ainda está carregando ou não tem imóveis, não faz nada
     if (loading || properties.length === 0) return;
-    // Se o lead já enviou, não mostra o modal
     if (leadSubmitted) return;
     
-    // Limpar timer anterior se existir
     if (modalTimerRef.current) {
       clearTimeout(modalTimerRef.current);
     }
     
-    // Aguardar 10 segundos para mostrar o modal de checklist
     modalTimerRef.current = setTimeout(() => {
-      // Verificar novamente se o lead ainda não enviou
       if (!leadSubmitted) {
         console.log("Mostrando modal de checklist após 10 segundos");
         setShowLeadMagnet(true);
@@ -317,88 +345,84 @@ const CatalogoPublico = () => {
       toast.success("Link copiado!");
     }
   };
-const handleSubmitLeadMagnet = async () => {
-  if (!leadEmail.trim() || !leadName.trim()) {
-    toast.error("Preencha seu nome e e-mail");
-    return;
-  }
 
-  setSendingLead(true);
-
-  try {
-    // 1. Salvar lead no Supabase
-    const { error: leadError } = await supabase.from("leads").insert({
-      name: leadName,
-      email: leadEmail,
-      phone: null,
-      source: "Lead Magnet - Checklist",
-      notes: `Checklist solicitado via catálogo de ${corretor?.full_name || "corretor"}`,
-      status: "novo",
-      assigned_to: userId || null,
-      company_id: corretor?.company_id || null,
-    });
-
-    if (leadError) {
-      console.error("Erro ao salvar lead:", leadError);
-      throw new Error("Erro ao salvar seus dados. Tente novamente.");
+  const handleSubmitLeadMagnet = async () => {
+    if (!leadEmail.trim() || !leadName.trim()) {
+      toast.error("Preencha seu nome e e-mail");
+      return;
     }
 
-    // 2. Enviar e-mail via Edge Function usando a URL completa
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const functionUrl = `${supabaseUrl}/functions/v1/send-checklist`;
-    
-    console.log("Chamando Edge Function em:", functionUrl);
-    
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({
-        email: leadEmail,
-        name: leadName,
-        corretor: corretor?.full_name || "CRM R2 Tech",
-        checklistContent: checklistData,
-      }),
-    });
+    setSendingLead(true);
 
-    console.log("Resposta status:", response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Erro na edge function:", errorText);
+    try {
+      const { error: leadError } = await supabase.from("leads").insert({
+        name: leadName,
+        email: leadEmail,
+        phone: null,
+        source: "Lead Magnet - Checklist",
+        notes: `Checklist solicitado via catálogo de ${corretor?.full_name || "corretor"}`,
+        status: "novo",
+        assigned_to: userId || null,
+        company_id: corretor?.company_id || null,
+      });
+
+      if (leadError) {
+        console.error("Erro ao salvar lead:", leadError);
+        throw new Error("Erro ao salvar seus dados. Tente novamente.");
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const functionUrl = `${supabaseUrl}/functions/v1/send-checklist`;
       
-      let errorMessage = "Erro ao enviar checklist";
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
+      console.log("Chamando Edge Function em:", functionUrl);
+      
+      const response = await fetch(functionUrl, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          email: leadEmail,
+          name: leadName,
+          corretor: corretor?.full_name || "CRM R2 Tech",
+          checklistContent: checklistData,
+        }),
+      });
+
+      console.log("Resposta status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro na edge function:", errorText);
+        
+        let errorMessage = "Erro ao enviar checklist";
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        
+        toast.warning(`${errorMessage}. Mas seus dados foram salvos!`);
+      } else {
+        const data = await response.json();
+        console.log("Edge function resposta:", data);
+        toast.success("Checklist enviado para seu e-mail!");
       }
       
-      toast.warning(`${errorMessage}. Mas seus dados foram salvos!`);
-    } else {
-      const data = await response.json();
-      console.log("Edge function resposta:", data);
-      toast.success("Checklist enviado para seu e-mail!");
+      setLeadSubmitted(true);
+      localStorage.setItem(`lead_magnet_${userId}`, 'true');
+      setShowLeadMagnet(false);
+      setShowThankYouModal(true);
+      
+    } catch (error: any) {
+      console.error("Erro completo:", error);
+      toast.error(error.message || "Erro ao processar. Tente novamente.");
+    } finally {
+      setSendingLead(false);
     }
-    
-    // 3. Marcar como submetido e persistir
-    setLeadSubmitted(true);
-    localStorage.setItem(`lead_magnet_${userId}`, 'true');
-    setShowLeadMagnet(false);
-    
-    // 4. Mostrar modal de agradecimento
-    setShowThankYouModal(true);
-    
-  } catch (error: any) {
-    console.error("Erro completo:", error);
-    toast.error(error.message || "Erro ao processar. Tente novamente.");
-  } finally {
-    setSendingLead(false);
-  }
-};
+  };
 
   const generateChecklistHTML = () => {
     const html = `
@@ -531,6 +555,17 @@ const handleSubmitLeadMagnet = async () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Botão do Simulador */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowSimulator(true)}
+            className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold px-4 py-2 rounded-full transition-colors text-sm"
+          >
+            <Calculator className="w-4 h-4" />
+            Simular financiamento
+          </button>
         </div>
 
         {/* Busca + filtros */}
@@ -762,92 +797,137 @@ const handleSubmitLeadMagnet = async () => {
           </AnimatePresence>
         </div>
 
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-slate-500">
-            {sortedProperties.length === 0
-              ? "Nenhum imóvel encontrado"
-              : `${sortedProperties.length} imóvel${sortedProperties.length !== 1 ? "is" : ""} encontrado${sortedProperties.length !== 1 ? "s" : ""}`}
-          </p>
-          <p className="text-[10px] text-slate-400 hidden sm:block">
-            Ordenado por: <span className="font-medium text-slate-500">{currentSortLabel}</span>
-          </p>
-        </div>
+        {/* Abas para alternar entre Lista e Mapa */}
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
+          <TabsList className="mb-4 bg-slate-100">
+            <TabsTrigger value="list" className="flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              Lista de Imóveis
+            </TabsTrigger>
+            <TabsTrigger value="map" className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Mapa Interativo
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Aba de Lista */}
+          <TabsContent value="list" className="mt-0">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-xs text-slate-500">
+                {sortedProperties.length === 0
+                  ? "Nenhum imóvel encontrado"
+                  : `${sortedProperties.length} imóvel${sortedProperties.length !== 1 ? "is" : ""} encontrado${sortedProperties.length !== 1 ? "s" : ""}`}
+              </p>
+              <p className="text-[10px] text-slate-400 hidden sm:block">
+                Ordenado por: <span className="font-medium text-slate-500">{currentSortLabel}</span>
+              </p>
+            </div>
 
-        {sortedProperties.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Building2 className="w-14 h-14 text-slate-200 mb-4" />
-            <p className="font-semibold text-slate-600 mb-1">Nenhum imóvel encontrado</p>
-            <p className="text-sm text-slate-400">Tente outros filtros ou termos de busca</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedProperties.map((prop, idx) => {
-              const img = images[prop.id];
-              return (
-                <motion.div
-                  key={prop.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}
-                >
-                  <Link
-                    to={`/imovel/${prop.id}`}
-                    className="group block bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all"
-                  >
-                    <div className="aspect-[4/3] bg-slate-100 relative overflow-hidden">
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={prop.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1">
-                          <Building2 className="w-10 h-10 opacity-30" />
-                          <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest">Sem foto</span>
+            {sortedProperties.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Building2 className="w-14 h-14 text-slate-200 mb-4" />
+                <p className="font-semibold text-slate-600 mb-1">Nenhum imóvel encontrado</p>
+                <p className="text-sm text-slate-400">Tente outros filtros ou termos de busca</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sortedProperties.map((prop, idx) => {
+                  const img = images[prop.id];
+                  return (
+                    <motion.div
+                      key={prop.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.04 }}
+                    >
+                      <Link
+                        to={`/imovel/${prop.id}`}
+                        className="group block bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all"
+                      >
+                        <div className="aspect-[4/3] bg-slate-100 relative overflow-hidden">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={prop.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 gap-1">
+                              <Building2 className="w-10 h-10 opacity-30" />
+                              <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest">Sem foto</span>
+                            </div>
+                          )}
+                          <div className={cn("absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full", statusColors[prop.status] || "bg-slate-100 text-slate-600")}>
+                            {statusLabels[prop.status] || prop.status}
+                          </div>
+                          <div className="absolute bottom-2 right-2 bg-[#7E22CE] text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ChevronRight className="w-4 h-4" />
+                          </div>
                         </div>
-                      )}
-                      <div className={cn("absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full", statusColors[prop.status] || "bg-slate-100 text-slate-600")}>
-                        {statusLabels[prop.status] || prop.status}
-                      </div>
-                      <div className="absolute bottom-2 right-2 bg-[#7E22CE] text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
 
-                    <div className="p-4">
-                      <p className="text-xs text-slate-400 capitalize mb-0.5">{typeLabels[prop.type] || prop.type}</p>
-                      <h3 className="font-bold text-slate-800 text-sm mb-1 line-clamp-2 group-hover:text-[#7E22CE] transition-colors">
-                        {prop.title}
-                      </h3>
-                      {(prop.neighborhood || prop.city) && (
-                        <div className="flex items-center gap-1 text-xs text-slate-400 mb-2">
-                          <MapPin className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{[prop.neighborhood, prop.city].filter(Boolean).join(", ")}</span>
+                        <div className="p-4">
+                          <p className="text-xs text-slate-400 capitalize mb-0.5">{typeLabels[prop.type] || prop.type}</p>
+                          <h3 className="font-bold text-slate-800 text-sm mb-1 line-clamp-2 group-hover:text-[#7E22CE] transition-colors">
+                            {prop.title}
+                          </h3>
+                          {(prop.neighborhood || prop.city) && (
+                            <div className="flex items-center gap-1 text-xs text-slate-400 mb-2">
+                              <MapPin className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{[prop.neighborhood, prop.city].filter(Boolean).join(", ")}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-base font-black text-[#7E22CE]">{formatCurrency(Number(prop.price))}</p>
+                            {prop.area && (
+                              <p className="text-xs text-slate-400 flex items-center gap-1">
+                                <Maximize className="w-3 h-3" /> {prop.area} m²
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-400">
+                            {prop.bedrooms && (
+                              <span className="flex items-center gap-1">
+                                <BedDouble className="w-3.5 h-3.5" />{prop.bedrooms} qto{prop.bedrooms > 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-base font-black text-[#7E22CE]">{formatCurrency(Number(prop.price))}</p>
-                        {prop.area && (
-                          <p className="text-xs text-slate-400 flex items-center gap-1">
-                            <Maximize className="w-3 h-3" /> {prop.area} m²
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400">
-                        {prop.bedrooms && (
-                          <span className="flex items-center gap-1">
-                            <BedDouble className="w-3.5 h-3.5" />{prop.bedrooms} qto{prop.bedrooms > 1 ? "s" : ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+          
+          {/* Aba de Mapa */}
+          <TabsContent value="map" className="mt-0">
+            <div className="relative">
+              <MapComponent
+                properties={mapProperties}
+                viewState={viewState}
+                onViewStateChange={setViewState}
+                onPropertySelect={setSelectedProperty}
+                selectedProperty={selectedProperty}
+                loading={mapLoading}
+              />
+              <MapControls
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetView={handleResetView}
+              />
+              {mapProperties.length === 0 && !mapLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl">
+                  <div className="text-center">
+                    <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Nenhum imóvel com localização disponível</p>
+                    <p className="text-xs text-slate-400 mt-1">Os imóveis precisam ter endereço para aparecer no mapa</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="pt-6 pb-4 flex items-center justify-center gap-2 border-t border-slate-200">
           <img src={logoR2} alt="CRM R2" className="h-5 opacity-40" />
@@ -933,7 +1013,7 @@ const handleSubmitLeadMagnet = async () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de agradecimento - Só aparece DEPOIS que o usuário enviar o formulário */}
+      {/* Modal de agradecimento */}
       <Dialog open={showThankYouModal} onOpenChange={(open) => {
         if (!open) setShowThankYouModal(false);
       }}>
@@ -956,6 +1036,25 @@ const handleSubmitLeadMagnet = async () => {
               Continuar navegando
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal do Simulador de Financiamento */}
+      <Dialog open={showSimulator} onOpenChange={setShowSimulator}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-[#7E22CE]" />
+              Simulador de Financiamento
+            </DialogTitle>
+            <DialogDescription>
+              Simule seu financiamento e compare as melhores opções dos principais bancos
+            </DialogDescription>
+          </DialogHeader>
+          <FinancingSimulator 
+            propertyValue={sortedProperties[0]?.price ? Number(sortedProperties[0].price) : undefined}
+            onClose={() => setShowSimulator(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

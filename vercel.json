@@ -1,11 +1,15 @@
 {
   "rewrites": [
     {
+      "source": "/catalogo/:userId",
+      "destination": "/api/catalogo/:userId"
+    },
+    {
       "source": "/confirm-email",
       "destination": "/confirm-email.html"
     },
     {
-      "source": "/((?!confirm-email).*)",
+      "source": "/((?!confirm-email|catalogo).*)",
       "destination": "/index.html"
     }
   ]

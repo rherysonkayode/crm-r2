@@ -5,11 +5,15 @@
       "destination": "/api/catalogo/:userId"
     },
     {
+      "source": "/imovel/:id",
+      "destination": "/api/imovel/:id"
+    },
+    {
       "source": "/confirm-email",
       "destination": "/confirm-email.html"
     },
     {
-      "source": "/((?!confirm-email|catalogo).*)",
+      "source": "/((?!confirm-email|catalogo|imovel|api).*)",
       "destination": "/index.html"
     }
   ]

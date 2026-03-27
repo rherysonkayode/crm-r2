@@ -1,6 +1,5 @@
-// api/catalogo/[userId].ts
-// Vercel Serverless Function — intercepta /catalogo/:userId
-// Crawlers recebem HTML com OG tags, browsers são redirecionados para o app
+// api/imovel/[id].ts
+// Vercel Serverless Function — intercepta /imovel/:id
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
@@ -14,35 +13,41 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const userId = req.query.userId as string;
+  const id     = req.query.id as string;
   const ua     = (req.headers["user-agent"] || "").toLowerCase();
   const isCrawler = CRAWLERS.some(c => ua.includes(c));
 
-  // Browser normal → redirecionar para o app React
   if (!isCrawler) {
-    return res.redirect(302, `${APP_URL}/#/catalogo/${userId}`);
+    return res.redirect(302, `${APP_URL}/#/imovel/${id}`);
   }
 
-  // Crawler → buscar dados e retornar HTML com OG tags
-  let title = "R2 TECH - Imóveis";
-  let desc  = "Catálogo de imóveis R2 TECH";
+  let title = "Imóvel | R2 TECH";
+  let desc  = "Veja os detalhes deste imóvel";
   let image = `${APP_URL}/logo-r2.svg`;
 
   try {
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=full_name,avatar_url,role`,
+      `${SUPABASE_URL}/rest/v1/properties?id=eq.${id}&select=title,price,city,neighborhood`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     const [p] = await r.json();
     if (p) {
-      const role = p.role === "imobiliaria" ? "Imobiliária" : "Corretor de Imóveis";
-      title = `Catálogo de ${p.full_name} | R2 TECH`;
-      desc  = `${p.full_name} · ${role} · Veja os imóveis disponíveis`;
-      if (p.avatar_url) image = p.avatar_url;
+      const preco = p.price
+        ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(p.price))
+        : "Consulte";
+      title = `${p.title} | R2 TECH`;
+      desc  = `${[p.neighborhood, p.city].filter(Boolean).join(", ")} · ${preco}`;
+
+      const ir = await fetch(
+        `${SUPABASE_URL}/rest/v1/property_images?property_id=eq.${id}&select=url&order=position&limit=1`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      );
+      const [img] = await ir.json();
+      if (img?.url) image = img.url;
     }
   } catch (_) { /* usa padrão */ }
 
-  const pageUrl = `${APP_URL}/catalogo/${userId}`;
+  const pageUrl = `${APP_URL}/imovel/${id}`;
 
   return res.setHeader("Content-Type", "text/html; charset=utf-8").send(`<!DOCTYPE html>
 <html lang="pt-BR"><head>
@@ -61,6 +66,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 <meta name="twitter:description" content="${desc}">
 <meta name="twitter:image" content="${image}">
 </head><body>
-<script>window.location.replace("${APP_URL}/#/catalogo/${userId}")</script>
+<script>window.location.replace("${APP_URL}/#/imovel/${id}")</script>
 </body></html>`);
 }

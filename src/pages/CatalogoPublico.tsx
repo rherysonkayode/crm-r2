@@ -279,6 +279,101 @@ const CatalogoPublico = () => {
     load();
   }, [userId]);
 
+  // Atualizar meta tags dinamicamente com o nome do corretor
+  useEffect(() => {
+    if (corretor?.full_name) {
+      // Atualizar título da página
+      document.title = `Catálogo - ${corretor.full_name} | R2 TECH`;
+      
+      // Meta description para SEO
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) {
+        metaDesc.setAttribute('content', `Confira os imóveis disponíveis com ${corretor.full_name}. Encontre o imóvel dos seus sonhos com o catálogo R2 TECH.`);
+      } else {
+        const newMeta = document.createElement('meta');
+        newMeta.name = 'description';
+        newMeta.content = `Confira os imóveis disponíveis com ${corretor.full_name}. Encontre o imóvel dos seus sonhos com o catálogo R2 TECH.`;
+        document.head.appendChild(newMeta);
+      }
+      
+      // Open Graph (Facebook, WhatsApp, LinkedIn)
+      let ogTitle = document.querySelector('meta[property="og:title"]');
+      if (!ogTitle) {
+        ogTitle = document.createElement('meta');
+        ogTitle.setAttribute('property', 'og:title');
+        document.head.appendChild(ogTitle);
+      }
+      ogTitle.setAttribute('content', `Catálogo - ${corretor.full_name} | R2 TECH`);
+      
+      let ogDescription = document.querySelector('meta[property="og:description"]');
+      if (!ogDescription) {
+        ogDescription = document.createElement('meta');
+        ogDescription.setAttribute('property', 'og:description');
+        document.head.appendChild(ogDescription);
+      }
+      ogDescription.setAttribute('content', `Confira os imóveis disponíveis com ${corretor.full_name}. Catálogo completo para você encontrar o imóvel ideal.`);
+      
+      let ogUrl = document.querySelector('meta[property="og:url"]');
+      if (!ogUrl) {
+        ogUrl = document.createElement('meta');
+        ogUrl.setAttribute('property', 'og:url');
+        document.head.appendChild(ogUrl);
+      }
+      ogUrl.setAttribute('content', window.location.href);
+      
+      let ogType = document.querySelector('meta[property="og:type"]');
+      if (!ogType) {
+        ogType = document.createElement('meta');
+        ogType.setAttribute('property', 'og:type');
+        document.head.appendChild(ogType);
+      }
+      ogType.setAttribute('content', 'website');
+      
+      // Imagem para compartilhamento (usar avatar do corretor ou logo)
+      let ogImage = document.querySelector('meta[property="og:image"]');
+      if (!ogImage) {
+        ogImage = document.createElement('meta');
+        ogImage.setAttribute('property', 'og:image');
+        document.head.appendChild(ogImage);
+      }
+      const imageUrl = corretor?.avatar_url || `${window.location.origin}/logo-r2.svg`;
+      ogImage.setAttribute('content', imageUrl);
+      
+      // Twitter Cards
+      let twitterCard = document.querySelector('meta[name="twitter:card"]');
+      if (!twitterCard) {
+        twitterCard = document.createElement('meta');
+        twitterCard.setAttribute('name', 'twitter:card');
+        document.head.appendChild(twitterCard);
+      }
+      twitterCard.setAttribute('content', 'summary_large_image');
+      
+      let twitterTitle = document.querySelector('meta[name="twitter:title"]');
+      if (!twitterTitle) {
+        twitterTitle = document.createElement('meta');
+        twitterTitle.setAttribute('name', 'twitter:title');
+        document.head.appendChild(twitterTitle);
+      }
+      twitterTitle.setAttribute('content', `Catálogo - ${corretor.full_name}`);
+      
+      let twitterDescription = document.querySelector('meta[name="twitter:description"]');
+      if (!twitterDescription) {
+        twitterDescription = document.createElement('meta');
+        twitterDescription.setAttribute('name', 'twitter:description');
+        document.head.appendChild(twitterDescription);
+      }
+      twitterDescription.setAttribute('content', `Confira os imóveis disponíveis com ${corretor.full_name}.`);
+      
+      let twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (!twitterImage) {
+        twitterImage = document.createElement('meta');
+        twitterImage.setAttribute('name', 'twitter:image');
+        document.head.appendChild(twitterImage);
+      }
+      twitterImage.setAttribute('content', imageUrl);
+    }
+  }, [corretor]);
+
   const corretorPhone = corretor?.phone || corretor?.telefone || null;
   const whatsappLink = corretorPhone
     ? `https://wa.me/55${corretorPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá ${corretor?.full_name || ""}! Vi seu catálogo de imóveis e gostaria de mais informações.`)}`
@@ -328,8 +423,8 @@ const CatalogoPublico = () => {
 
   const handleShare = () => {
     const shareData = {
-      title: `Catálogo - ${corretor?.full_name || "Imóveis"}`,
-      text: `Confira os imóveis disponíveis de ${corretor?.full_name || "nosso catálogo"}!`,
+      title: `Catálogo - ${corretor?.full_name || "Imóveis"} | R2 TECH`,
+      text: `Confira os imóveis disponíveis de ${corretor?.full_name || "nosso catálogo"}! Encontre o imóvel dos seus sonhos.`,
       url: window.location.href,
     };
 

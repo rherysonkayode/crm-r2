@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ShareCatalogModal } from "@/components/ShareCatalogModal";
 import { AppLayout } from "@/components/AppLayout";
 import { useProperties } from "@/hooks/useCompanyData";
 import { useAllPropertyImages, PropertyImage } from "@/hooks/useAllPropertyImages";
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Pencil, MapPin, BedDouble, Maximize,
-  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye, Phone, Users, LayoutGrid
+  Image as ImageIcon, ChevronLeft, ChevronRight, DollarSign, Building2, SlidersHorizontal, Share2, Eye, Phone, Users, LayoutGrid, ExternalLink
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -21,6 +22,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ImageUploadMultiple } from "@/components/ImageUploadMultiple";
 import { cn } from "@/lib/utils";
 import { LocationSearch } from "@/components/LocationSearch";
+import { Link } from "react-router-dom";
 
 const typeOptions = [
   { value: "apartamento", label: "Apartamento" },
@@ -147,6 +149,7 @@ const Properties = () => {
   const [vendaInfo,         setVendaInfo]         = useState<VendaInfo | null>(null);
   const [viewImageIndex,    setViewImageIndex]    = useState(0);
   const [vendaDialogOpen,   setVendaDialogOpen]   = useState(false);
+  const [shareModalOpen,    setShareModalOpen]    = useState(false);
   
   // Estado para localização
   const [location, setLocation] = useState<{
@@ -392,20 +395,37 @@ const Properties = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            {/* Botão compartilhar catálogo */}
+            {/* Botão Acessar Catálogo */}
             <Button
               variant="outline"
               className="gap-2 border-[#7E22CE] text-[#7E22CE] hover:bg-purple-50"
-              onClick={() => {
-                const link = `${window.location.origin}/#/catalogo/${profile?.id}`;
-                navigator.clipboard.writeText(link);
-                toast.success("Link do catálogo copiado!");
-              }}
+              asChild
             >
-              <LayoutGrid className="w-4 h-4" />
-              <span className="hidden sm:inline">Compartilhar catálogo</span>
-              <span className="sm:hidden">Catálogo</span>
+              <Link to={`/catalogo/${profile?.id}`} target="_blank">
+                <ExternalLink className="w-4 h-4" />
+                <span className="hidden sm:inline">Acessar Catálogo</span>
+                <span className="sm:hidden">Catálogo</span>
+              </Link>
             </Button>
+
+            {/* Botão Compartilhar catálogo - ABRE MODAL */}
+            <Button
+              variant="outline"
+              className="gap-2 border-[#7E22CE] text-[#7E22CE] hover:bg-purple-50"
+              onClick={() => setShareModalOpen(true)}
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Compartilhar catálogo</span>
+              <span className="sm:hidden">Compartilhar</span>
+            </Button>
+
+            {/* Modal de compartilhamento */}
+            <ShareCatalogModal
+              open={shareModalOpen}
+              onOpenChange={setShareModalOpen}
+              catalogLink={`${window.location.origin}/catalogo/${profile?.id}`}
+              corretorName={profile?.full_name}
+            />
 
             {canCreateProperties && (
               <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
@@ -697,7 +717,7 @@ const Properties = () => {
                       <Button variant="outline" size="sm" className="flex-1 text-xs gap-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const link = `${window.location.origin}/#/imovel/${prop.id}`;
+                          const link = `${window.location.origin}/imovel/${prop.id}`;
                           navigator.clipboard.writeText(link);
                           toast.success("Link copiado!");
                         }}>

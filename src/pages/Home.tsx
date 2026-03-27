@@ -6,10 +6,10 @@ import Footer from "@/components/Footer";
 
 const Home = () => {
   const plans = [
-    { name: "Start", description: "Para corretores autonomos comecando", price: 97, period: "mes", users: 1, leads: 200, imoveis: 50, features: ["Gestao de leads", "Cadastro de imoveis", "Calendario de eventos", "Calculadora financeira", "Relatorios basicos", "Suporte por e-mail"], notIncluded: ["Relatorios avancados", "API", "Multiplas filiais", "Suporte prioritario"], cta: "Comecar teste gratis", popular: false },
-    { name: "Pro", description: "Para corretores com alta demanda", price: 147, period: "mes", users: 1, leads: 500, imoveis: 150, features: ["Tudo do Start", "Relatorios avancados", "Exportacao de dados", "Campos personalizados"], notIncluded: ["API", "Multiplas filiais", "Suporte prioritario"], cta: "Comecar teste gratis", popular: false },
-    { name: "Profissional", description: "Para imobiliarias pequenas", price: 197, period: "mes", users: 5, leads: 1000, imoveis: 300, features: ["Tudo do Pro", "Ate 5 usuarios", "Gestao de equipe", "Relatorios por corretor"], notIncluded: ["API", "Multiplas filiais"], cta: "Comecar teste gratis", popular: true },
-    { name: "Enterprise", description: "Para imobiliarias medias", price: 347, period: "mes", users: 20, leads: 5000, imoveis: 1000, features: ["Tudo do Profissional", "API e Webhooks", "Multiplas filiais", "Suporte prioritario"], notIncluded: [], cta: "Comecar teste gratis", popular: false },
+    { name: "Start", description: "Para corretores autônomos começando", price: 97, period: "mês", users: 1, leads: 200, imoveis: 50, features: ["Gestão de leads", "Cadastro de imóveis", "Calendário de eventos", "Calculadora financeira", "Relatórios básicos", "Suporte por e-mail"], notIncluded: ["Relatórios avançados", "API", "Múltiplas filiais", "Suporte prioritário"], cta: "Começar teste grátis", popular: false },
+    { name: "Pro", description: "Para corretores com alta demanda", price: 147, period: "mês", users: 1, leads: 500, imoveis: 150, features: ["Tudo do Start", "Relatórios avançados", "Exportação de dados", "Campos personalizados"], notIncluded: ["API", "Múltiplas filiais", "Suporte prioritário"], cta: "Começar teste grátis", popular: false },
+    { name: "Profissional", description: "Para imobiliárias pequenas", price: 197, period: "mês", users: 5, leads: 1000, imoveis: 300, features: ["Tudo do Pro", "Até 5 usuários", "Gestão de equipe", "Relatórios por corretor"], notIncluded: ["API", "Múltiplas filiais"], cta: "Começar teste grátis", popular: true },
+    { name: "Enterprise", description: "Para imobiliárias médias", price: 347, period: "mês", users: 20, leads: 5000, imoveis: 1000, features: ["Tudo do Profissional", "API e Webhooks", "Múltiplas filiais", "Suporte prioritário"], notIncluded: [], cta: "Começar teste grátis", popular: false },
   ];
 
   return (
@@ -20,18 +20,18 @@ const Home = () => {
       <section className="bg-gradient-to-br from-[#7E22CE] via-purple-700 to-purple-800 text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">CRM R2</h1>
-          <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-3xl mx-auto">A solucao definitiva para corretores e imobiliarias de alta performance</p>
+          <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-3xl mx-auto">A solução definitiva para corretores e imobiliárias de alta performance</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="bg-white text-[#7E22CE] hover:bg-purple-50 text-lg px-8 py-6" asChild>
-              <Link to="/auth">Comecar teste gratis</Link>
+              <Link to="/auth">Começar teste grátis</Link>
             </Button>
             <Button size="lg" variant="outline" className="border-white text-white bg-purple-800/20 hover:bg-purple-600 text-lg px-8 py-6" asChild>
               <Link to="/faq">Conhecer funcionalidades</Link>
             </Button>
           </div>
-          <p className="text-sm text-purple-200 mt-4">Teste gratis de 3 dias - Sem compromisso</p>
+          <p className="text-sm text-purple-200 mt-4">Teste grátis de 3 dias - Sem compromisso</p>
           <p className="mt-6 text-purple-200 text-sm">
-            Ja tem conta?{" "}
+            Já tem conta?{" "}
             <Link to="/auth" className="text-white font-bold underline underline-offset-4 decoration-white/50 hover:decoration-white transition-all">
               Clique aqui para entrar
             </Link>
@@ -44,13 +44,13 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center mb-12" style={{ color: "#0f172a" }}>Por que escolher o CRM R2?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <BenefitCard icon={<TrendingUp />} title="Funil de vendas" text="Acompanhe seus negocios em todas as etapas, do lead ao fechamento." />
-            <BenefitCard icon={<HomeIcon />} title="Gestao de imoveis" text="Cadastre fotos e organize seu portfolio com facilidade." />
-            <BenefitCard icon={<Users />} title="Equipe integrada" text="Para imobiliarias: convide corretores e divida comissoes." />
-            <BenefitCard icon={<Calendar />} title="Calendario" text="Nunca perca um compromisso com lembretes e eventos." />
+            <BenefitCard icon={<TrendingUp />} title="Funil de vendas" text="Acompanhe seus negócios em todas as etapas, do lead ao fechamento." />
+            <BenefitCard icon={<HomeIcon />} title="Gestão de imóveis" text="Cadastre fotos e organize seu portfólio com facilidade." />
+            <BenefitCard icon={<Users />} title="Equipe integrada" text="Para imobiliárias: convide corretores e divida comissões." />
+            <BenefitCard icon={<Calendar />} title="Calendário" text="Nunca perca um compromisso com lembretes e eventos." />
             <BenefitCard icon={<Calculator />} title="Calculadora financeira" text="Simule financiamentos com taxas reais dos bancos." />
-            <BenefitCard icon={<Zap />} title="Rapido e intuitivo" text="Interface pensada para o dia a dia do corretor." />
-            <BenefitCard icon={<Shield />} title="Seguro e confiavel" text="Seus dados protegidos com criptografia e backups." />
+            <BenefitCard icon={<Zap />} title="Rápido e intuitivo" text="Interface pensada para o dia a dia do corretor." />
+            <BenefitCard icon={<Shield />} title="Seguro e confiável" text="Seus dados protegidos com criptografia e backups." />
             <BenefitCard icon={<Smartphone />} title="100% responsivo" text="Acesse de qualquer lugar, no celular, tablet ou computador." />
           </div>
         </div>
@@ -60,7 +60,7 @@ const Home = () => {
       <section className="py-16" style={{ backgroundColor: "#ffffff" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center mb-4" style={{ color: "#0f172a" }}>Planos que cabem no seu bolso</h2>
-          <p className="text-center mb-12 max-w-2xl mx-auto" style={{ color: "#64748b" }}>Precos acessiveis para voce comecar agora. Teste gratis de 3 dias sem compromisso.</p>
+          <p className="text-center mb-12 max-w-2xl mx-auto" style={{ color: "#64748b" }}>Preços acessíveis para você começar agora. Teste grátis de 3 dias sem compromisso.</p>
 
           <div className="flex lg:grid lg:grid-cols-4 gap-6 overflow-x-auto pb-4 items-start">
             {plans.map((plan) => (
@@ -96,15 +96,15 @@ const Home = () => {
                     <ul className="space-y-3 text-sm">
                       <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#22c55e" }} />
-                        <span style={{ color: "#334155" }}><strong>{plan.users}</strong> {plan.users === 1 ? "usuario" : "usuarios"}</span>
+                        <span style={{ color: "#334155" }}><strong>{plan.users}</strong> {plan.users === 1 ? "usuário" : "usuários"}</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#22c55e" }} />
-                        <span style={{ color: "#334155" }}><strong>{plan.leads}</strong> leads/mes</span>
+                        <span style={{ color: "#334155" }}><strong>{plan.leads}</strong> leads/mês</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#22c55e" }} />
-                        <span style={{ color: "#334155" }}><strong>{plan.imoveis}</strong> imoveis ativos</span>
+                        <span style={{ color: "#334155" }}><strong>{plan.imoveis}</strong> imóveis ativos</span>
                       </li>
                       {plan.features.map((feature, i) => (
                         <li key={i} className="flex items-start gap-2">
@@ -150,10 +150,10 @@ const Home = () => {
           <h2 className="text-3xl font-bold text-center mb-8" style={{ color: "#0f172a" }}>Perguntas frequentes</h2>
           <div className="space-y-3">
             {[
-              { q: "Como funciona o teste gratis?", a: "Voce tem 3 dias para testar todas as funcionalidades. Nao e necessario cartao de credito." },
-              { q: "Posso mudar de plano depois?", a: "Sim! Voce pode fazer upgrade a qualquer momento. Downgrades so sao permitidos na renovacao." },
-              { q: "Quais formas de pagamento sao aceitas?", a: "Cartao de credito, PIX e boleto bancario (assinaturas anuais)." },
-              { q: "Preciso contratar por quanto tempo?", a: "Mensalmente, sem fidelidade. Voce pode cancelar quando quiser." },
+              { q: "Como funciona o teste grátis?", a: "Você tem 3 dias para testar todas as funcionalidades. Não é necessário cartão de crédito." },
+              { q: "Posso mudar de plano depois?", a: "Sim! Você pode fazer upgrade a qualquer momento. Downgrades só são permitidos na renovação." },
+              { q: "Quais formas de pagamento são aceitas?", a: "Cartão de crédito, PIX e boleto bancário (assinaturas anuais)." },
+              { q: "Preciso contratar por quanto tempo?", a: "Mensalmente, sem fidelidade. Você pode cancelar quando quiser." },
             ].map((item, i) => (
               <details key={i} className="rounded-xl border" style={{ backgroundColor: "#ffffff", borderColor: "#e2e8f0" }}>
                 <summary
@@ -173,12 +173,12 @@ const Home = () => {
       <section className="bg-[#7E22CE] py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Comece agora mesmo</h2>
-          <p className="text-purple-100 text-lg mb-6">Teste gratis por 3 dias. Sem compromisso.</p>
+          <p className="text-purple-100 text-lg mb-6">Teste grátis por 3 dias. Sem compromisso.</p>
           <Button size="lg" className="bg-white text-[#7E22CE] hover:bg-purple-50 text-lg px-8 py-6" asChild>
             <Link to="/auth">Quero testar</Link>
           </Button>
           <p className="mt-4 text-purple-200 text-sm">
-            Ja tem conta?{" "}
+            Já tem conta?{" "}
             <Link to="/auth" className="text-white font-bold underline underline-offset-4 decoration-white/50 hover:decoration-white transition-all">
               Clique aqui para entrar
             </Link>

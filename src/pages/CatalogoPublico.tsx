@@ -153,6 +153,10 @@ const CatalogoPublico = () => {
   const [showSimulator, setShowSimulator] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
+  // Estado para verificação de assinatura
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
   // Dados do mapa
   const {
     properties: mapProperties,
@@ -210,6 +214,50 @@ const CatalogoPublico = () => {
       }
     };
   }, [loading, properties.length, leadSubmitted]);
+
+  // Verificar status da assinatura do corretor
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (!userId) {
+        setSubscriptionLoading(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("subscription_status, trial_end")
+          .eq("id", userId)
+          .single();
+        
+        if (error) {
+          console.error("Erro ao verificar assinatura:", error);
+          setSubscriptionStatus("active"); // fallback seguro
+          setSubscriptionLoading(false);
+          return;
+        }
+        
+        let status = data?.subscription_status || "active";
+        
+        // Verificar se trial expirou
+        if (status === "trial" && data?.trial_end) {
+          const trialEnd = new Date(data.trial_end);
+          if (trialEnd < new Date()) {
+            status = "expired";
+          }
+        }
+        
+        setSubscriptionStatus(status);
+      } catch (err) {
+        console.error("Erro:", err);
+        setSubscriptionStatus("active");
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+    
+    checkSubscription();
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) { setNotFound(true); setLoading(false); return; }
@@ -566,11 +614,40 @@ const CatalogoPublico = () => {
     toast.success("Checklist baixado!");
   };
 
-  if (loading) return (
+  // Verificação de loading combinado
+  if (loading || subscriptionLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#f8fafc" }}>
       <div className="w-8 h-8 border-2 border-[#7E22CE] border-t-transparent rounded-full animate-spin" />
     </div>
   );
+
+  // Verificar se a assinatura está expirada ou cancelada
+  const isExpired = subscriptionStatus === "expired" || subscriptionStatus === "canceled";
+
+  if (isExpired) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center" style={{ backgroundColor: "#f8fafc" }}>
+        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6">
+          <svg className="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-slate-800 mb-2">Catálogo temporariamente indisponível</h1>
+        <p className="text-slate-500 mb-4 max-w-md">
+          O catálogo de {corretor?.full_name || "este corretor"} está temporariamente indisponível.
+        </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 max-w-md">
+          <p className="text-sm text-amber-700">
+            🔄 Para reativar o catálogo, o corretor precisa renovar sua assinatura.
+            Após a confirmação do pagamento, o catálogo será reativado automaticamente.
+          </p>
+        </div>
+        <Link to="/" className="mt-8 text-[#7E22CE] hover:underline text-sm">
+          Voltar ao início
+        </Link>
+      </div>
+    );
+  }
 
   if (notFound) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center" style={{ backgroundColor: "#f8fafc" }}>

@@ -232,14 +232,13 @@ const CatalogoPublico = () => {
         
         if (error) {
           console.error("Erro ao verificar assinatura:", error);
-          setSubscriptionStatus("active"); // fallback seguro
+          setSubscriptionStatus("active");
           setSubscriptionLoading(false);
           return;
         }
         
         let status = data?.subscription_status || "active";
         
-        // Verificar se trial expirou
         if (status === "trial" && data?.trial_end) {
           const trialEnd = new Date(data.trial_end);
           if (trialEnd < new Date()) {
@@ -351,7 +350,7 @@ const CatalogoPublico = () => {
         ogTitle.setAttribute('property', 'og:title');
         document.head.appendChild(ogTitle);
       }
-      ogTitle.setAttribute('content', `Catálogo - ${corretor.full_name} | R2 TECH`);
+      ogTitle.setAttribute('content', `Catálogo de ${corretor.full_name} | R2 TECH`);
       
       let ogDescription = document.querySelector('meta[property="og:description"]');
       if (!ogDescription) {
@@ -402,7 +401,7 @@ const CatalogoPublico = () => {
         twitterTitle.setAttribute('name', 'twitter:title');
         document.head.appendChild(twitterTitle);
       }
-      twitterTitle.setAttribute('content', `Catálogo - ${corretor.full_name}`);
+      twitterTitle.setAttribute('content', `Catálogo de ${corretor.full_name}`);
       
       let twitterDescription = document.querySelector('meta[name="twitter:description"]');
       if (!twitterDescription) {
